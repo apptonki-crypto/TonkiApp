@@ -21,8 +21,8 @@ export type AirdropConfigSnapshot = {
 };
 
 /**
- * Same eligible list the airdrop page shows: non-admin users with ≥1 tonki,
- * capped by config.max_users, ordered by tonkis desc, with 98%-pool shares.
+ * Same eligible list the airdrop page shows: non-admin users with ≥1 loyalty point,
+ * capped by config.max_users, ordered by points desc, with 98%-pool shares.
  */
 export async function loadAirdropEligibleUsers(adminUserId: string): Promise<{
   config: AirdropConfigSnapshot | null;

@@ -116,7 +116,7 @@ export function formatHorizonError(err: unknown): {
 
     const hasNoTrust = resultCodes?.operations?.includes("op_no_trust");
     const noTrustHint = hasNoTrust
-      ? "Una o más wallets destino no tienen trustline del activo (TONKI/USDC). Deben agregar el activo en Freighter antes de recibir."
+      ? "Una o más wallets destino no tienen trustline de USDC. Deben agregar el activo en Freighter antes de recibir."
       : null;
 
     const parts = [

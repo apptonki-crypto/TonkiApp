@@ -1,0 +1,252 @@
+/* Business registration — reuses login tokens via shared class names */
+
+.biz-reg-page {
+  --login-bg: #141414;
+  --login-card: rgba(254, 253, 245, 0.78);
+  --login-elevated: rgba(254, 253, 245, 0.92);
+  --login-hover: rgba(243, 230, 188, 0.55);
+  --login-border: rgba(45, 33, 13, 0.14);
+  --login-text: #2d210d;
+  --login-text-muted: #6b5530;
+  --login-accent: #d4a84b;
+  --login-accent-hover: #c4983f;
+  --login-accent-fg: #2d210d;
+  --login-danger: #b91c1c;
+
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-x: hidden;
+  background-color: var(--login-bg);
+  background-image: url("/Logos-Tonki-SVG/hex-bg.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  padding: 2rem 1rem 3rem;
+  color: var(--login-text);
+}
+
+.biz-reg-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.28);
+  pointer-events: none;
+}
+
+.biz-reg-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: var(--login-card);
+  padding: 2rem 1.75rem;
+  box-shadow:
+    0 20px 40px -16px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.biz-reg-card--narrow {
+  max-width: 420px;
+  margin-top: 10vh;
+}
+
+.biz-reg-brand {
+  display: flex;
+  justify-content: center;
+}
+
+.biz-reg-logo {
+  height: auto;
+  width: 100%;
+  max-width: 180px;
+}
+
+.biz-reg-title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--login-text);
+}
+
+.biz-reg-lead {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--login-text-muted);
+}
+
+.biz-reg-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 0.35rem;
+}
+
+.biz-reg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.biz-reg-row {
+  display: grid;
+  gap: 0.9rem;
+}
+
+@media (min-width: 640px) {
+  .biz-reg-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.biz-reg-hours {
+  margin: 0.25rem 0 0;
+  padding: 0.85rem 0.9rem 0.95rem;
+  border: 1px solid var(--login-border);
+  border-radius: 0.9rem;
+  background: rgba(254, 253, 245, 0.4);
+}
+
+.biz-reg-hours legend {
+  padding: 0 0.25rem;
+}
+
+.biz-reg-hours-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.biz-reg-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.biz-reg-day-closed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--login-text);
+}
+
+.biz-reg-day-closed-tag {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--login-text-muted);
+}
+
+.biz-reg-day-times {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.biz-reg-day-sep {
+  font-size: 0.8rem;
+  color: var(--login-text-muted);
+}
+
+.biz-reg-footer {
+  margin: 0.25rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--login-text-muted);
+}
+
+.biz-reg-link {
+  color: var(--login-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.biz-reg-link:hover {
+  color: var(--login-accent-hover);
+}
+
+/* Shared with login form controls */
+.login-input {
+  border-radius: 0.75rem;
+  border: 1px solid var(--login-border);
+  background: var(--login-elevated);
+  padding: 0.8rem 1rem;
+  color: var(--login-text);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.login-input::placeholder {
+  color: color-mix(in srgb, var(--login-text) 45%, transparent);
+}
+
+.login-input:focus {
+  border-color: color-mix(in srgb, var(--login-accent) 70%, var(--login-text));
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--login-accent) 22%, transparent);
+  background: #fefdf5;
+}
+
+.login-btn {
+  border-radius: 0.75rem;
+  padding: 0.8rem 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    opacity 150ms ease;
+}
+
+.login-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.login-btn-primary {
+  width: 100%;
+  margin-top: 0.15rem;
+  border: 1px solid transparent;
+  background: var(--login-accent);
+  color: var(--login-accent-fg);
+}
+
+.login-btn-primary:hover:not(:disabled) {
+  background: var(--login-accent-hover);
+}
+
+.login-field-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--login-text-muted);
+}
+
+.login-error {
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--login-danger);
+}

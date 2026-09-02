@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   AIRDROP_ASSET_CODES,
   AIRDROP_DEFAULT_ASSET,
+  getAirdropAssetDefinition,
 } from "src/lib/airdrop/constants";
 import {
   fetchAirdropConfig,
@@ -61,8 +62,10 @@ function CurrentConfigSummary({ config }: { config: AirdropConfigRecord }) {
           </span>
         </li>
         <li>
-          Token:{" "}
-          <span className="font-semibold text-tonki-text">{config.asset}</span>
+          Activo de pago:{" "}
+          <span className="font-semibold text-tonki-text">
+            {getAirdropAssetDefinition(config.asset).label}
+          </span>
         </li>
         <li>
           Fecha inicio programada:{" "}
@@ -243,7 +246,7 @@ export default function AdminAirdropConfigurePage() {
 
           <div>
             <label htmlFor="asset" className="mb-1.5 block text-sm font-medium text-tonki-text">
-              Token a enviar
+              Activo de pago (Stellar)
             </label>
             <select
               id="asset"
@@ -260,10 +263,14 @@ export default function AdminAirdropConfigurePage() {
             >
               {AIRDROP_ASSET_CODES.map((code) => (
                 <option key={code} value={code}>
-                  {code}
+                  {getAirdropAssetDefinition(code).label}
                 </option>
               ))}
             </select>
+            <p className="mt-1.5 text-xs text-tonki-text-muted">
+              Los Puntos Tonki solo viven en tu base de datos y determinan la
+              proporción del reparto. El pago on-chain es en USDC o XLM.
+            </p>
           </div>
 
           <div>

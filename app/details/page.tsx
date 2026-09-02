@@ -50,9 +50,10 @@ export default function DetailsPage() {
             <p className="text-base leading-relaxed text-tonki-text-secondary md:text-lg">
               Tonki convierte el marketing en comportamiento medible. En lugar
               de pagar por impresiones, los negocios envían recompensas directas
-              (XLM/USDC) a sus clientes. Esto permite reactivar clientes
-              inactivos, premiar clientes frecuentes y lanzar campañas
-              dirigidas.
+              en USDC (o XLM) a las wallets de sus clientes, usando los Puntos
+              Tonki acumulados en la plataforma para decidir quién recibe qué
+              proporción. Esto permite reactivar clientes inactivos, premiar
+              clientes frecuentes y lanzar campañas dirigidas.
             </p>
           </article>
 

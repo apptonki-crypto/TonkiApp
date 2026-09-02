@@ -6,7 +6,7 @@ export const airdropConfigBodySchema = z
       .number()
       .positive("El monto debe ser mayor que cero")
       .max(1_000_000_000, "Monto demasiado grande"),
-    asset: z.enum(["TONKI", "XLM", "USDC"]).default("TONKI"),
+    asset: z.enum(["USDC", "XLM"]).default("USDC"),
     scheduled_date: z
       .string()
       .trim()

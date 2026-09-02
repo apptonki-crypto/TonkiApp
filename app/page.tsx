@@ -23,6 +23,14 @@ export default function Home() {
           >
             Características
           </Link>
+          <Link
+            href="/faq"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-tonki-accent"
+          >
+            FAQ
+          </Link>
           <a
             href="#contact"
             className="transition-colors hover:text-tonki-accent"

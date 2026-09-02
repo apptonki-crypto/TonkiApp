@@ -1,6 +1,6 @@
 import { apiError, apiSuccess } from "src/lib/api/response";
 import { requireActiveAdminSession } from "src/lib/api/requireActiveAdmin";
-import { normalizeAirdropAssetCode } from "src/lib/airdrop/constants";
+import { normalizeAirdropAssetCode, parseAirdropLogAsset } from "src/lib/airdrop/constants";
 import { parseAirdropLogPayload } from "src/lib/airdrop/logPayload";
 import prisma from "src/lib/db";
 import type { AirdropHistoryLogRecord } from "src/lib/airdrop/types";
@@ -31,12 +31,10 @@ export async function GET() {
     const logs: AirdropHistoryLogRecord[] = rows.map((row) => {
       const payload = parseAirdropLogPayload(row.response_json);
       const configAsset = normalizeAirdropAssetCode(row.config.asset);
-      const resolvedAsset =
-        payload?.asset === "TONKI" ||
-        payload?.asset === "XLM" ||
-        payload?.asset === "USDC"
-          ? payload.asset
-          : configAsset;
+      const payloadAsset = payload?.asset;
+      const resolvedAsset = payloadAsset
+        ? parseAirdropLogAsset(payloadAsset)
+        : configAsset;
 
       const configFromRelation = {
         amount: row.config.amount,

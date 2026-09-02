@@ -51,7 +51,7 @@ export async function fetchAdminAirdrop(opts: {
       ok: true,
       data: {
         amount,
-        asset: asset === "XLM" || asset === "USDC" || asset === "TONKI" ? asset : "TONKI",
+        asset: asset === "XLM" || asset === "USDC" ? asset : "USDC",
         source_public_key,
         scheduled_date,
         scheduled_end_date: scheduled_end_date ?? null,

@@ -31,5 +31,7 @@ export const config = {
     "/rewards/:path*",
     "/admin/:path*",
     "/account/:path*",
+    "/mesero/:path*",
+    "/pagar/:path*",
   ],
 };

@@ -61,7 +61,7 @@ function CampaignArchiveCard({ archive }: { archive: AirdropCampaignArchiveRecor
           value={archive.purchase_count.toLocaleString("es")}
         />
         <StatRow
-          label="Total acumulado (Tonkis en visitas)"
+          label="Total acumulado (puntos de lealtad)"
           value={formatAmount(archive.total_spent)}
         />
         <StatRow
@@ -73,7 +73,7 @@ function CampaignArchiveCard({ archive }: { archive: AirdropCampaignArchiveRecor
           value={formatDate(archive.campaign_end)}
         />
         <StatRow
-          label="Balance enviado (XLM)"
+          label="Balance enviado on-chain"
           value={formatAmount(archive.balance_sent)}
         />
         <StatRow

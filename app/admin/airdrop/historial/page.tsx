@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchAirdropHistory } from "src/lib/airdrop/fetchAirdropHistoryClient";
+import { formatAirdropAssetLabel, AIRDROP_DEFAULT_ASSET } from "src/lib/airdrop/constants";
 import { formatCampaignRangeLabel } from "src/lib/airdrop/schemas";
 import type { AirdropHistoryLogRecord } from "src/lib/airdrop/types";
 
@@ -89,7 +90,9 @@ function HistoryLogCard({ log }: { log: AirdropHistoryLogRecord }) {
         )
       : formatDate(log.config.scheduled_date);
 
-  const assetLabel = log.asset ?? log.config.asset ?? "TONKI";
+  const assetLabel = formatAirdropAssetLabel(
+    log.asset ?? log.config.asset ?? AIRDROP_DEFAULT_ASSET
+  );
 
   const header = log.success
     ? `Envío exitoso · ${formatDateTime(log.executed_at)}`
@@ -121,7 +124,7 @@ function HistoryLogCard({ log }: { log: AirdropHistoryLogRecord }) {
         <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-tonki-text-muted">
           Configuración usada
         </p>
-        <StatRow label="Token" value={assetLabel} />
+        <StatRow label="Activo de pago" value={assetLabel} />
         <StatRow
           label="Monto configurado"
           value={`${formatAmount(log.config.amount)} ${assetLabel}`}

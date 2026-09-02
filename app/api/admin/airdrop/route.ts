@@ -2,7 +2,10 @@ import prisma from "src/lib/db";
 import { apiError, apiSuccess } from "src/lib/api/response";
 import { requireActiveAdminSession } from "src/lib/api/requireActiveAdmin";
 import { loadAirdropEligibleUsers } from "src/lib/airdrop/loadAirdropEligibleUsers";
-import { AIRDROP_EMISOR_PUBLIC_KEY } from "src/lib/airdrop/constants";
+import {
+  AIRDROP_EMISOR_PUBLIC_KEY,
+  AIRDROP_DEFAULT_ASSET,
+} from "src/lib/airdrop/constants";
 
 export async function GET() {
   try {
@@ -13,7 +16,7 @@ export async function GET() {
 
     return apiSuccess({
       amount: config?.amount ?? 0,
-      asset: config?.asset ?? "TONKI",
+      asset: config?.asset ?? AIRDROP_DEFAULT_ASSET,
       source_public_key: AIRDROP_EMISOR_PUBLIC_KEY,
       scheduled_date: config?.scheduled_date?.toISOString() ?? null,
       scheduled_end_date: config?.scheduled_end_date?.toISOString() ?? null,

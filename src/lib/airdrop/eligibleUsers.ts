@@ -28,8 +28,8 @@ export function roundXlm(value: number): number {
 }
 
 /**
- * Assigns each listed user a share of the **98% user pool**, proportional to tonkis
- * among that same list (not the global reward total).
+ * Assigns each listed user a share of the **98% user pool**, proportional to loyalty
+ * points among that same list (not the global reward total).
  * Display `fund_percent` is relative to the full configured amount (sums ≈ 98).
  */
 export function applyAirdropSharePercents(

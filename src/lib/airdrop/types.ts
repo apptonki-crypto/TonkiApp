@@ -1,3 +1,5 @@
+import type { AirdropLegacyAssetCode } from "src/lib/airdrop/constants";
+
 export type AirdropUserRow = {
   user_id: string;
   name: string;
@@ -8,7 +10,7 @@ export type AirdropUserRow = {
 
 export type AirdropPagePayload = {
   amount: number;
-  asset: "TONKI" | "XLM" | "USDC";
+  asset: "USDC" | "XLM";
   source_public_key: string | null;
   scheduled_date: string | null;
   scheduled_end_date: string | null;
@@ -19,7 +21,7 @@ export type AirdropPagePayload = {
 
 export type AirdropConfigRecord = {
   amount: number;
-  asset: "TONKI" | "XLM" | "USDC";
+  asset: "USDC" | "XLM";
   scheduled_date: string;
   scheduled_end_date: string | null;
   periodicity_months: number;
@@ -57,7 +59,7 @@ export type AirdropHistoryRecipient = {
 
 export type AirdropHistoryConfigSnapshot = {
   amount: number;
-  asset: "TONKI" | "XLM" | "USDC";
+  asset: "USDC" | "XLM";
   scheduled_date: string;
   scheduled_end_date: string | null;
   periodicity_months: number;
@@ -79,7 +81,7 @@ export type AirdropHistoryLogRecord = {
   total_amount: number;
   users_involved: number;
   error_message: string | null;
-  asset: "TONKI" | "XLM" | "USDC" | null;
+  asset: AirdropLegacyAssetCode | null;
   config: AirdropHistoryConfigSnapshot;
   fees: AirdropHistoryFees | null;
   recipients: AirdropHistoryRecipient[];

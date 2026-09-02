@@ -47,6 +47,8 @@ model User {
   rewards             Reward[]
   airdrop_configs     AirdropConfig[]
   posts               Post[]
+  waiter_bills_created WaiterBillQr[] @relation("WaiterBillQrCreator")
+  waiter_bills_scanned WaiterBillQr[] @relation("WaiterBillQrScanner")
 }
 
 model AuthIdentity {
@@ -153,6 +155,8 @@ model Establishment {
   name             String   @db.VarChar(150)
   address          String?  @db.VarChar(255)
   category         String?  @db.VarChar(100)
+  phone            String   @db.VarChar(30)
+  hours            Json
   avatar_url       String?  @db.VarChar(2048)
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
@@ -189,6 +193,7 @@ model Reward {
   establishment_id String   @db.Char(36)
   title            String   @db.VarChar(150)
   description      String?
+  /// Loyalty points (Puntos Tonki). Off-chain only — not a blockchain asset.
   points           Int      @default(0)
   status           String   @default("active")
   created_at       DateTime @default(now())
@@ -202,7 +207,7 @@ model AirdropConfig {
   config_id           String    @id @default(uuid()) @db.Char(36)
   user_id             String    @db.Char(36)
   amount              Float
-  asset               String    @default("TONKI") @db.VarChar(10)
+  asset               String    @default("USDC") @db.VarChar(10)
   scheduled_date      DateTime
   scheduled_end_date  DateTime?
   periodicity_months  Int
@@ -247,4 +252,22 @@ model AirdropLog {
   response_json    String?  @db.Text
 
   config AirdropConfig @relation(fields: [config_id], references: [config_id])
+}
+
+model WaiterBillQr {
+  bill_qr_id         String    @id @default(uuid()) @db.Char(36)
+  total_amount       Float
+  created_by_user_id String    @db.Char(36)
+  scanned_by_user_id String?   @db.Char(36)
+  scanned_at         DateTime?
+  /// Cashback in Puntos Tonki (1% of total_amount), awarded once on first scan.
+  tonkis_awarded     Int       @default(0)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  creator User  @relation("WaiterBillQrCreator", fields: [created_by_user_id], references: [user_id])
+  scanner User? @relation("WaiterBillQrScanner", fields: [scanned_by_user_id], references: [user_id])
+
+  @@index([created_by_user_id])
+  @@index([scanned_by_user_id])
 }

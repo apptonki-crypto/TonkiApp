@@ -1,4 +1,7 @@
-import type { AirdropAssetCode } from "src/lib/airdrop/constants";
+import type {
+  AirdropAssetCode,
+  AirdropLegacyAssetCode,
+} from "src/lib/airdrop/constants";
 import type { AirdropConfigSnapshot } from "src/lib/airdrop/loadAirdropEligibleUsers";
 import type { AirdropDistributionRow } from "src/lib/airdrop/eligibleUsers";
 import type {
@@ -11,7 +14,7 @@ export const AIRDROP_LOG_PAYLOAD_VERSION = 1 as const;
 
 export type AirdropLogPayloadV1 = {
   version: typeof AIRDROP_LOG_PAYLOAD_VERSION;
-  asset: AirdropAssetCode;
+  asset: AirdropLegacyAssetCode;
   config: AirdropHistoryConfigSnapshot;
   fees: AirdropHistoryFees;
   distributions: AirdropHistoryRecipient[];

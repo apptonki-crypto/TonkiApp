@@ -254,7 +254,7 @@ export default function AdminAirdropPage() {
           label="Monto configurado"
           value={`${formatAmount(data.amount)} ${data.asset}`}
         />
-        <SummaryCard label="Token" value={data.asset} />
+        <SummaryCard label="Activo de pago" value={data.asset} />
         <SummaryCard
           label="Wallet emisora"
           value={data.source_public_key?.trim() || "Sin wallet registrada"}
@@ -316,7 +316,7 @@ export default function AdminAirdropPage() {
                   <th className="px-3 py-2 font-semibold">ID</th>
                   <th className="px-3 py-2 font-semibold">Nombre</th>
                   <th className="px-3 py-2 font-semibold">Wallet address</th>
-                  <th className="px-3 py-2 font-semibold">Tonkis</th>
+                  <th className="px-3 py-2 font-semibold">Puntos</th>
                   <th className="px-3 py-2 font-semibold">% del fondo</th>
                 </tr>
               </thead>

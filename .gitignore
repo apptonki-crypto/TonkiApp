@@ -45,3 +45,6 @@ next-env.d.ts
 !/public/uploads/.gitkeep
 
 /src/generated/prisma
+
+# Documentacion local
+/TonkiApp/docs
