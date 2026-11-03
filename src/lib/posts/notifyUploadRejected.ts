@@ -8,7 +8,7 @@ function fileSizeLabel(bytes: number): string {
 }
 
 /** Solo texto para la UI (sin efectos secundarios). */
-export function formatPostUploadRejectMessage(rejected: File[]): string {
+function formatPostUploadRejectMessage(rejected: File[]): string {
   if (rejected.length === 0) return "";
 
   const maxLabel = postUploadMaxSizeLabelEs();
@@ -36,7 +36,7 @@ export function formatPostUploadRejectMessage(rejected: File[]): string {
  * Muestra el diálogo nativo pasado un breve retardo para que no compita con el batch
  * de React ni con el vaciado del input de archivos (varios navegadores).
  */
-export function schedulePostUploadWeightAlert(message: string): void {
+function schedulePostUploadWeightAlert(message: string): void {
   if (!message.trim() || typeof window === "undefined") return;
   const text = message;
   window.setTimeout(() => {

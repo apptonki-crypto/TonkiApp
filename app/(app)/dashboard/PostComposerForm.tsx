@@ -19,6 +19,13 @@ import {
 } from "src/lib/posts/schemas";
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
 import { notifyPostUploadWeightRejected } from "src/lib/posts/notifyUploadRejected";
+import { PostDynamicsComposer } from "src/components/posts/PostDynamicsComposer";
+import {
+  buildDynamicCreates,
+  readPublishResult,
+  rememberPublishedPromoCodes,
+  type DynamicDraft,
+} from "src/lib/posts/dynamicClient";
 import { ImageAttachmentGrid } from "./ImageAttachmentGrid";
 
 let composerIdSeq = 0;
@@ -47,6 +54,7 @@ export function PostComposerForm({
 }: PostComposerFormProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [dynamics, setDynamics] = useState<DynamicDraft[]>([]);
   const [drafts, setDrafts] = useState<LocalDraftFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -145,6 +153,12 @@ export function PostComposerForm({
         return;
       }
 
+      const builtDynamics = buildDynamicCreates(dynamics);
+      if (!builtDynamics.ok) {
+        setFeedback({ kind: "error", text: builtDynamics.error });
+        return;
+      }
+
       const { rejected: rejectsSubmit } = partitionPostUploadFilesBySize(
         drafts.map((d) => d.file)
       );
@@ -161,6 +175,9 @@ export function PostComposerForm({
         const fd = new FormData();
         fd.append("title", title.trim());
         if (body.trim()) fd.append("body", body.trim());
+        if (builtDynamics.data.length > 0) {
+          fd.append("dynamics", JSON.stringify(builtDynamics.data));
+        }
         for (const d of drafts) {
           fd.append("files", d.file);
         }
@@ -198,12 +215,35 @@ export function PostComposerForm({
         for (const d of drafts) {
           if (d.previewUrl) URL.revokeObjectURL(d.previewUrl);
         }
+        const promoCodes = builtDynamics.data.flatMap((item) =>
+          item.kind === "promo_code" ? [item.code] : []
+        );
+        const published = readPublishResult(payload);
+        if (published.postId && promoCodes.length > 0) {
+          const byId: Record<string, string> = {};
+          const promoDynamics = published.dynamics.filter(
+            (item) => item.kind === "promo_code"
+          );
+          promoDynamics.forEach((item, index) => {
+            const code = item.code ?? promoCodes[index];
+            if (code) byId[item.dynamic_id] = code;
+          });
+          rememberPublishedPromoCodes(published.postId, {
+            ordered: promoCodes,
+            byId,
+          });
+        }
         setDrafts([]);
+        setDynamics([]);
         setTitle("");
         setBody("");
+        const baseMessage = payload?.message ?? "Publicado correctamente.";
         setFeedback({
           kind: "success",
-          text: payload?.message ?? "Publicado correctamente.",
+          text:
+            promoCodes.length > 0
+              ? `${baseMessage} Código ${promoCodes.join(", ")}. No se muestra en el feed público.`
+              : baseMessage,
         });
         onPublished?.();
       } catch (err) {
@@ -216,7 +256,7 @@ export function PostComposerForm({
         setSubmitting(false);
       }
     },
-    [title, body, drafts, onPublished]
+    [title, body, drafts, dynamics, onPublished]
   );
 
   return (
@@ -286,6 +326,8 @@ export function PostComposerForm({
           </div>
         </div>
       </div>
+
+      <PostDynamicsComposer drafts={dynamics} onChange={setDynamics} />
 
       {imageDraftItems.length > 0 && (
         <ImageAttachmentGrid

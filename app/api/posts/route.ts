@@ -15,6 +15,13 @@ import {
   postUploadMaxSizeLabelEs,
 } from "src/lib/posts/constants";
 import { PostUploadError, savePostUpload } from "src/lib/posts/savePostUpload";
+import { findFirstAdminEstablishmentId } from "src/lib/posts/adminEstablishment";
+import { createPostDynamics } from "src/lib/posts/applyPostDynamics";
+import {
+  PostDynamicRequestError,
+  parseCreateDynamicsField,
+} from "src/lib/posts/dynamicRequests";
+import { loadPublicDynamicsByPost } from "src/lib/posts/loadPublicDynamics";
 
 export async function GET(req: Request) {
   try {
@@ -90,7 +97,7 @@ export async function GET(req: Request) {
         updated_at: true,
         content_edited_at: true,
         author: {
-          select: { user_id: true, name: true },
+          select: { user_id: true, name: true, avatar_url: true },
         },
         attachments: {
           select: {
@@ -111,6 +118,13 @@ export async function GET(req: Request) {
       nextCursor = encodePostCursor(last.created_at, last.post_id);
     }
 
+    const dynamicsByPost = await loadPublicDynamicsByPost(
+      slice.map((p) => p.post_id),
+      userId,
+      new Date(),
+      { includeAuthorCode: mine }
+    );
+
     const posts = slice.map((p) => {
       const was_edited = p.content_edited_at != null;
       return {
@@ -125,6 +139,7 @@ export async function GET(req: Request) {
         author: {
           user_id: p.author.user_id,
           name: p.author.name,
+          avatar_url: p.author.avatar_url,
         },
         attachments: p.attachments.map((a) => ({
           attachment_id: a.attachment_id,
@@ -132,6 +147,7 @@ export async function GET(req: Request) {
           mime_type: a.mime_type,
           original_name: a.original_name,
         })),
+        dynamics: dynamicsByPost.get(p.post_id) ?? [],
       };
     });
 
@@ -176,6 +192,20 @@ export async function POST(req: Request) {
         ? rawBody.trim()
         : null;
 
+    const dynamicsField = formData.get("dynamics");
+    if (dynamicsField != null && typeof dynamicsField !== "string") {
+      return apiError("Dinámicas inválidas.", 400);
+    }
+    const dynamicsRaw = typeof dynamicsField === "string" ? dynamicsField : "";
+    const establishmentId = dynamicsRaw.trim()
+      ? await findFirstAdminEstablishmentId(userId)
+      : null;
+    const parsedDynamics = parseCreateDynamicsField(
+      dynamicsRaw,
+      establishmentId
+    );
+    if (!parsedDynamics.ok) return apiError(parsedDynamics.error, 400);
+
     const candidates = formData.getAll("files");
     const files = candidates.filter(
       (f): f is File => f instanceof File && f.size > 0
@@ -217,28 +247,42 @@ export async function POST(req: Request) {
       }
     }
 
-    await prisma.post.create({
-      data: {
-        post_id: postId,
-        author_id: userId,
-        title,
-        body,
-        ...(attachmentData.length > 0
-          ? {
-              attachments: {
-                create: attachmentData,
-              },
-            }
-          : {}),
-      },
-      select: { post_id: true },
+    await prisma.$transaction(async (tx) => {
+      await tx.post.create({
+        data: {
+          post_id: postId,
+          author_id: userId,
+          title,
+          body,
+          ...(attachmentData.length > 0
+            ? {
+                attachments: {
+                  create: attachmentData,
+                },
+              }
+            : {}),
+        },
+        select: { post_id: true },
+      });
+      await createPostDynamics(tx, postId, parsedDynamics.data);
     });
+
+    const dynamicsByPost = await loadPublicDynamicsByPost(
+      [postId],
+      userId,
+      new Date(),
+      { includeAuthorCode: true }
+    );
 
     return apiSuccess({
       message: "Publicado",
       postId,
+      dynamics: dynamicsByPost.get(postId) ?? [],
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof PostDynamicRequestError) {
+      return apiError(err.message, err.status);
+    }
     return apiError("Error al crear la publicación", 500);
   }
 }

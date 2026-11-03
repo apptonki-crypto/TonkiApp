@@ -7,7 +7,11 @@ export type FeedPostItem = FeedPost & {
   feedKey: string;
 };
 
-const DEMO_AUTHOR = { user_id: "tonki-demo", name: "Tonki" };
+const DEMO_AUTHOR = {
+  user_id: "tonki-demo",
+  name: "Tonki",
+  avatar_url: null,
+};
 
 /** Posts usados cuando el feed real está vacío; se repiten al hacer scroll. */
 export const PROCEDURAL_PLACEHOLDER_POSTS: FeedPost[] = [

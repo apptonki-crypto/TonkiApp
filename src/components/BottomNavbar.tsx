@@ -19,6 +19,7 @@ type NavItem = {
 const BASE_NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Feed", Icon: IconHome },
   { href: "/rewards", label: "Recompensas", Icon: IconGift },
+  { href: "/negocios", label: "Lugares", Icon: IconPlaces },
   { href: "/account", label: "Cuenta", Icon: IconUser },
 ];
 
@@ -63,8 +64,9 @@ export function BottomNavbar() {
     return [
       BASE_NAV_ITEMS[0],
       BASE_NAV_ITEMS[1],
-      ADMIN_AIRDROP_ITEM,
       BASE_NAV_ITEMS[2],
+      ADMIN_AIRDROP_ITEM,
+      BASE_NAV_ITEMS[3],
     ];
   }, [role]);
 
@@ -168,6 +170,25 @@ function IconUser({ className, ...props }: IconProps) {
     >
       <circle cx={12} cy={8} r={4} />
       <path d="M4 21c0-4 3.5-6 8-6s8 2 8 6" />
+    </svg>
+  );
+}
+
+function IconPlaces({ className, ...props }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z" />
+      <circle cx={12} cy={10} r={2.5} />
     </svg>
   );
 }

@@ -1,4 +1,4 @@
-import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import { fetchSessionJson } from "src/lib/api/fetchSessionJson";
 import type { AirdropAssetCode } from "src/lib/airdrop/constants";
 
 export type PrepareAirdropSuccess = {
@@ -44,105 +44,59 @@ export type SendAirdropResult =
 export async function prepareAdminAirdrop(opts: {
   sourcePublicKey: string;
 }): Promise<PrepareAirdropResult> {
-  try {
-    const res = await fetch("/api/admin/airdrop/prepare", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        source_public_key: opts.sourcePublicKey,
-      }),
-    });
-
-    if (res.status === 401) {
-      return { ok: false, error: "No autenticado", unauthorized: true };
-    }
-
-    const body = await readJsonSafely<
-      PrepareAirdropSuccess & { success?: boolean; error?: string }
-    >(res);
-
-    if (body === null) {
-      return { ok: false, error: "Respuesta inválida del servidor" };
-    }
-
-    if (!res.ok) {
-      return { ok: false, error: body.error || `Error ${res.status}` };
-    }
-
-    if (!body.unsigned_xdr || !body.network_passphrase) {
-      return { ok: false, error: "Formato de preparación inesperado" };
-    }
-
-    return {
-      ok: true,
-      data: {
-        unsigned_xdr: body.unsigned_xdr,
-        network_passphrase: body.network_passphrase,
-        source_public_key: body.source_public_key,
-        total_amount: body.total_amount,
-        users_involved: body.users_involved,
-        fees: body.fees,
-        asset: body.asset,
-      },
-    };
-  } catch {
-    return { ok: false, error: "No se pudo preparar el airdrop" };
-  }
+  return fetchSessionJson("/api/admin/airdrop/prepare", {
+    networkErrorMessage: "No se pudo preparar el airdrop",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      source_public_key: opts.sourcePublicKey,
+    }),
+    invalidFormatMessage: "Formato de preparación inesperado",
+    parse: (body) => {
+      const data = body as Partial<PrepareAirdropSuccess>;
+      if (!data.unsigned_xdr || !data.network_passphrase) return null;
+      return {
+        unsigned_xdr: data.unsigned_xdr,
+        network_passphrase: data.network_passphrase,
+        source_public_key: data.source_public_key as string,
+        total_amount: data.total_amount as number,
+        users_involved: data.users_involved as number,
+        fees: data.fees as PrepareAirdropSuccess["fees"],
+        asset: data.asset as AirdropAssetCode,
+      };
+    },
+  });
 }
 
 export async function sendAdminAirdrop(opts: {
   signedXdr: string;
   sourcePublicKey?: string;
 }): Promise<SendAirdropResult> {
-  try {
-    const res = await fetch("/api/admin/airdrop/send", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        signed_xdr: opts.signedXdr,
-        ...(opts.sourcePublicKey
-          ? { source_public_key: opts.sourcePublicKey }
-          : {}),
-      }),
-    });
-
-    if (res.status === 401) {
-      return { ok: false, error: "No autenticado", unauthorized: true };
-    }
-
-    const body = await readJsonSafely<
-      SendAirdropSuccess & { success?: boolean; error?: string }
-    >(res);
-
-    if (body === null) {
-      return { ok: false, error: "Respuesta inválida del servidor" };
-    }
-
-    if (!res.ok) {
-      return { ok: false, error: body.error || `Error ${res.status}` };
-    }
-
-    if (!body.transaction_hash || !body.horizon_url) {
-      return { ok: false, error: "Formato de respuesta inesperado" };
-    }
-
-    return {
-      ok: true,
-      data: {
-        message: body.message ?? "Transacción enviada con éxito",
-        log_id: body.log_id,
-        transaction_hash: body.transaction_hash,
-        horizon_url: body.horizon_url,
-        source_public_key: body.source_public_key,
-        total_amount: body.total_amount,
-        users_involved: body.users_involved,
-        fees: body.fees,
-        asset: body.asset,
-      },
-    };
-  } catch {
-    return { ok: false, error: "No se pudo enviar el airdrop" };
-  }
+  return fetchSessionJson("/api/admin/airdrop/send", {
+    networkErrorMessage: "No se pudo enviar el airdrop",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      signed_xdr: opts.signedXdr,
+      ...(opts.sourcePublicKey
+        ? { source_public_key: opts.sourcePublicKey }
+        : {}),
+    }),
+    invalidFormatMessage: "Formato de respuesta inesperado",
+    parse: (body) => {
+      const data = body as Partial<SendAirdropSuccess>;
+      if (!data.transaction_hash || !data.horizon_url) return null;
+      return {
+        message: data.message ?? "Transacción enviada con éxito",
+        log_id: data.log_id as string,
+        transaction_hash: data.transaction_hash,
+        horizon_url: data.horizon_url,
+        source_public_key: data.source_public_key as string,
+        total_amount: data.total_amount as number,
+        users_involved: data.users_involved as number,
+        fees: data.fees as SendAirdropSuccess["fees"],
+        asset: data.asset as AirdropAssetCode,
+      };
+    },
+  });
 }

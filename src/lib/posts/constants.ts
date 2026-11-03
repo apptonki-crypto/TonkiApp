@@ -7,9 +7,6 @@ export const POST_UPLOAD_MAX_BYTES_IMAGE_PDF = 5 * 1024 * 1024;
 /** Vídeos (MP4, WebM, QuickTime). */
 export const POST_UPLOAD_MAX_BYTES_VIDEO = 50 * 1024 * 1024;
 
-/** @deprecated Usar `maxPostUploadBytesForMime` o constantes por tipo. */
-export const POST_UPLOAD_MAX_BYTES = POST_UPLOAD_MAX_BYTES_VIDEO;
-
 export function maxPostUploadBytesForMime(mime: string): number {
   const m = mime.toLowerCase();
   if (m.startsWith("video/")) return POST_UPLOAD_MAX_BYTES_VIDEO;

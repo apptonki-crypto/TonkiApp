@@ -1,188 +1,36 @@
 "use client";
-import { memo, Suspense, useCallback, useReducer } from "react";
+
+import { WalletType, type AuthState } from "@pollar/core";
+import { usePollar } from "@pollar/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  signMessage,
-  isConnected,
-  requestAccess,
-} from "@stellar/freighter-api";
+import { memo, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
-import type {
-  AuthResponse,
-  UserRole,
-  WalletNeedsRegistrationResponse,
-} from "src/types/auth";
+import { usePollarLogout, usePollarReady } from "src/components/PollarAppProvider";
+import { readPollarPublishableKey } from "src/lib/auth/pollarPublicConfig";
+import { sanitizeAuthReturnPath } from "src/lib/auth/sanitizeReturnPath";
+import type { AuthResponse } from "src/types/auth";
 import "./login.css";
 
-function sanitizeReturnPath(
-  raw: string | null,
-  role: UserRole
-): string | null {
-  if (!raw?.trim()) return null;
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(raw.trim());
-  } catch {
-    return null;
-  }
-  const pathOnly = decoded.split(/[?#]/, 1)[0] ?? "";
-  if (
-    pathOnly.startsWith("//") ||
-    !pathOnly.startsWith("/") ||
-    pathOnly === "/login"
-  ) {
-    return null;
-  }
-  if (/[\x00-\x1f]/.test(pathOnly)) return null;
-  if (!/^\/[-\w./]*$/.test(pathOnly)) return null;
+type SessionApiBody = AuthResponse & { error?: string; success?: boolean };
 
-  if (pathOnly.startsWith("/admin")) {
-    return role === "admin" ? pathOnly : null;
-  }
-  if (pathOnly.startsWith("/dashboard")) {
-    return pathOnly;
-  }
-  if (pathOnly.startsWith("/account")) {
-    return pathOnly;
-  }
-  return null;
-}
-
-const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
-  google_oauth_not_configured:
-    "El inicio de sesión con Gmail no está disponible por ahora.",
-  google_access_denied: "Cancelaste el acceso con Gmail.",
-  google_oauth_invalid_callback:
-    "No se pudo completar el inicio de sesión con Gmail. Intenta de nuevo.",
-  google_oauth_state_mismatch:
-    "La sesión de Gmail expiró. Vuelve a intentarlo.",
-  google_oauth_failed:
-    "No se pudo iniciar sesión con Gmail. Intenta de nuevo.",
-  google_token_exchange_failed:
-    "Google rechazó el intercambio de token. Revisa GOOGLE_REDIRECT_URI en el servidor (debe ser exactamente https://tonki.io/api/auth/google/callback).",
-  google_nonce_mismatch:
-    "La verificación de Gmail falló (nonce). Vuelve a intentarlo.",
-  google_id_token_invalid:
-    "No se pudo validar la identidad de Google. Intenta de nuevo.",
-  google_oauth_origin_misconfigured:
-    "Falta APP_URL en el servidor (ej. https://tonki.io).",
-  google_oauth_infrastructure_error:
-    "Falta o falla DATABASE_URL en el servidor (Hostinger). Revisa la conexión a MySQL y reinicia la app.",
-  google_oauth_profile_invalid:
-    "Tu perfil de Google no se pudo guardar. Contacta a soporte.",
-  google_oauth_account_conflict:
-    "Esa cuenta de Google ya está vinculada de otra forma. Intenta con otro método o contacta a soporte.",
-  account_suspended: "Tu cuenta está suspendida. Contacta a soporte.",
-  invalid_account_role: "No pudimos validar tu cuenta. Contacta a soporte.",
-  auth_secret_missing:
-    "Configuración de seguridad incompleta. Contacta a soporte.",
-};
-
-function resolveQueryError(code: string | null): string {
-  if (!code) return "";
-  const msg = GOOGLE_ERROR_MESSAGES[code] ?? "No se pudo iniciar sesión.";
-  // Surface error code while diagnosing Hostinger Google OAuth.
-  return `${msg} (${code})`;
-}
-
-function buildGoogleStartUrl(from: string | null): string {
-  const params = new URLSearchParams();
-  if (from?.trim()) params.set("from", from);
-  const query = params.toString();
-  return query ? `/api/auth/google/start?${query}` : "/api/auth/google/start";
-}
-
-type LoginState = {
-  username: string;
-  password: string;
-  error: string;
-  isSubmitting: boolean;
-  isWalletLoading: boolean;
-  isGoogleLoading: boolean;
-  walletRegisterMode: boolean;
-  pendingPublicKey: string;
-  regName: string;
-  regEmail: string;
-  regBirthDate: string;
-  isRegistering: boolean;
-};
-
-type LoginAction =
-  | { type: "SET_USERNAME"; payload: string }
-  | { type: "SET_PASSWORD"; payload: string }
-  | { type: "SET_ERROR"; payload: string }
-  | { type: "SET_SUBMITTING"; payload: boolean }
-  | { type: "SET_WALLET_LOADING"; payload: boolean }
-  | { type: "SET_GOOGLE_LOADING"; payload: boolean }
-  | {
-      type: "START_WALLET_REGISTER";
-      payload: { publicKey: string };
-    }
-  | { type: "CANCEL_WALLET_REGISTER" }
-  | { type: "SET_REG_NAME"; payload: string }
-  | { type: "SET_REG_EMAIL"; payload: string }
-  | { type: "SET_REG_BIRTH_DATE"; payload: string }
-  | { type: "SET_REGISTERING"; payload: boolean };
-
-const initialState: LoginState = {
-  username: "",
-  password: "",
-  error: "",
-  isSubmitting: false,
-  isWalletLoading: false,
-  isGoogleLoading: false,
-  walletRegisterMode: false,
-  pendingPublicKey: "",
-  regName: "",
-  regEmail: "",
-  regBirthDate: "",
-  isRegistering: false,
-};
-
-function loginReducer(state: LoginState, action: LoginAction): LoginState {
-  switch (action.type) {
-    case "SET_USERNAME":
-      return { ...state, username: action.payload };
-    case "SET_PASSWORD":
-      return { ...state, password: action.payload };
-    case "SET_ERROR":
-      return { ...state, error: action.payload };
-    case "SET_SUBMITTING":
-      return { ...state, isSubmitting: action.payload };
-    case "SET_WALLET_LOADING":
-      return { ...state, isWalletLoading: action.payload };
-    case "SET_GOOGLE_LOADING":
-      return { ...state, isGoogleLoading: action.payload };
-    case "START_WALLET_REGISTER":
-      return {
-        ...state,
-        walletRegisterMode: true,
-        pendingPublicKey: action.payload.publicKey,
-        error: "",
-        regName: "",
-        regEmail: "",
-        regBirthDate: "",
-      };
-    case "CANCEL_WALLET_REGISTER":
-      return {
-        ...state,
-        walletRegisterMode: false,
-        pendingPublicKey: "",
-        regName: "",
-        regEmail: "",
-        regBirthDate: "",
-        error: "",
-      };
-    case "SET_REG_NAME":
-      return { ...state, regName: action.payload };
-    case "SET_REG_EMAIL":
-      return { ...state, regEmail: action.payload };
-    case "SET_REG_BIRTH_DATE":
-      return { ...state, regBirthDate: action.payload };
-    case "SET_REGISTERING":
-      return { ...state, isRegistering: action.payload };
+function pollarErrorMessage(state: Extract<AuthState, { step: "error" }>): string {
+  switch (state.errorCode) {
+    case "EMAIL_CODE_INVALID":
+    case "EMAIL_CODE_EXPIRED":
+    case "EMAIL_VERIFY_FAILED":
+      return "El código no es válido o expiró. Pide uno nuevo.";
+    case "EMAIL_SEND_FAILED":
+      return "No se pudo enviar el código. Revisa el correo e intenta de nuevo.";
+    case "WALLET_CONNECT_FAILED":
+    case "WALLET_AUTH_FAILED":
+      return "No se pudo conectar Freighter. Aprueba la conexión e intenta de nuevo.";
+    case "LOGIN_TIMEOUT":
+      return "El inicio de sesión tardó demasiado. Intenta de nuevo.";
     default:
-      return state;
+      if (state.message === "An unexpected error occurred") {
+        return "No se pudo iniciar sesión con Pollar. Revisa la clave publicable y que este origen esté permitido en el dashboard.";
+      }
+      return state.message || "No se pudo iniciar sesión.";
   }
 }
 
@@ -214,457 +62,140 @@ const GoogleIcon = memo(function GoogleIcon() {
   );
 });
 
-type GoogleButtonProps = {
-  isLoading: boolean;
-  disabled: boolean;
-  onClick: () => void;
-};
-
-const GoogleButton = memo(function GoogleButton({
-  isLoading,
-  disabled,
-  onClick,
-}: GoogleButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="login-btn login-btn-outline login-btn-google"
-    >
-      <GoogleIcon />
-      {isLoading ? "Conectando con Gmail…" : "Continuar con Gmail"}
-    </button>
-  );
-});
-
-type LoginFormProps = {
-  username: string;
-  password: string;
-  isSubmitting: boolean;
-  onUsernameChange: (value: string) => void;
-  onPasswordChange: (value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-};
-
-const LoginForm = memo(function LoginForm({
-  username,
-  password,
-  isSubmitting,
-  onUsernameChange,
-  onPasswordChange,
-  onSubmit,
-}: LoginFormProps) {
-  return (
-    <form onSubmit={onSubmit} className="login-form">
-      <input
-        type="text"
-        placeholder="Usuario o correo"
-        value={username}
-        onChange={(e) => onUsernameChange(e.target.value)}
-        className="login-input"
-      />
-      <input
-        type="password"
-        placeholder="Contraseña"
-        value={password}
-        onChange={(e) => onPasswordChange(e.target.value)}
-        className="login-input"
-      />
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="login-btn login-btn-primary"
-      >
-        {isSubmitting ? "Entrando..." : "Entrar"}
-      </button>
-    </form>
-  );
-});
-
-type WalletButtonProps = {
-  isLoading: boolean;
-  onClick: () => void;
-};
-
-const WalletButton = memo(function WalletButton({
-  isLoading,
-  onClick,
-}: WalletButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={isLoading}
-      className="login-btn login-btn-outline"
-    >
-      {isLoading ? "Conectando..." : "Conecta con Freighter"}
-    </button>
-  );
-});
-
-type WalletRegisterFormProps = {
-  name: string;
-  email: string;
-  birthDate: string;
-  publicKey: string;
-  isSubmitting: boolean;
-  onNameChange: (value: string) => void;
-  onEmailChange: (value: string) => void;
-  onBirthDateChange: (value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  onCancel: () => void;
-};
-
-const WalletRegisterForm = memo(function WalletRegisterForm({
-  name,
-  email,
-  birthDate,
-  publicKey,
-  isSubmitting,
-  onNameChange,
-  onEmailChange,
-  onBirthDateChange,
-  onSubmit,
-  onCancel,
-}: WalletRegisterFormProps) {
-  const shortKey =
-    publicKey.length > 12
-      ? `${publicKey.slice(0, 6)}…${publicKey.slice(-4)}`
-      : publicKey;
-
-  return (
-    <form onSubmit={onSubmit} className="login-form">
-      <p className="login-register-intro">
-        Wallet verificada (<span className="login-mono">{shortKey}</span>).
-        Completa tus datos para crear tu cuenta.
-      </p>
-      <input
-        type="text"
-        name="name"
-        placeholder="Nombre (opcional)"
-        value={name}
-        onChange={(e) => onNameChange(e.target.value)}
-        className="login-input"
-        autoComplete="name"
-      />
-      <input
-        type="email"
-        name="email"
-        placeholder="Correo electrónico"
-        value={email}
-        onChange={(e) => onEmailChange(e.target.value)}
-        className="login-input"
-        required
-        autoComplete="email"
-      />
-      <label className="login-field-label" htmlFor="wallet-birth-date">
-        Fecha de nacimiento
-      </label>
-      <input
-        id="wallet-birth-date"
-        type="date"
-        name="birthDate"
-        value={birthDate}
-        onChange={(e) => onBirthDateChange(e.target.value)}
-        className="login-input"
-        required
-      />
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="login-btn login-btn-primary"
-      >
-        {isSubmitting ? "Registrando..." : "Crear cuenta"}
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={isSubmitting}
-        className="login-btn login-btn-outline"
-      >
-        Cancelar
-      </button>
-    </form>
-  );
-});
-
-function LoginPageInner() {
+function PollarLogin() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
-  const [state, dispatch] = useReducer(loginReducer, initialState, (base) => ({
-    ...base,
-    error: resolveQueryError(searchParams.get("error")),
-  }));
   const router = useRouter();
-
-  const redirectAfterAuth = useCallback(
-    (data: AuthResponse) => {
-      const target = sanitizeReturnPath(from, data.role);
-      router.push(target ?? data.redirectTo);
-    },
-    [from, router]
+  const { login, getClient, verified, isAuthenticated } = usePollar();
+  const logoutPollar = usePollarLogout();
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [phase, setPhase] = useState<"methods" | "otp">("methods");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState<"google" | "email" | "wallet" | "session" | null>(
+    null
   );
+  const exchangedToken = useRef<string | null>(null);
 
-  const handleLoginSuccess = useCallback(
-    (data: AuthResponse) => {
-      redirectAfterAuth(data);
-    },
-    [redirectAfterAuth]
-  );
-
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      dispatch({ type: "SET_ERROR", payload: "" });
-      dispatch({ type: "SET_SUBMITTING", payload: true });
-
+  const exchangeSession = useCallback(
+    async (accessToken: string) => {
+      if (exchangedToken.current === accessToken) return;
+      exchangedToken.current = accessToken;
+      setBusy("session");
+      setError("");
       try {
-        const res = await fetch("/api/auth/login", {
+        const res = await fetch("/api/auth/pollar/session", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            username: state.username,
-            password: state.password,
+            token: accessToken,
+            ...(from?.trim() ? { from } : {}),
           }),
         });
-
-        type LoginApiBody = AuthResponse & { error?: string };
-
-        const data = await readJsonSafely<LoginApiBody>(res);
-        if (data === null) {
-          dispatch({
-            type: "SET_ERROR",
-            payload: "Respuesta inválida del servidor",
-          });
+        const data = await readJsonSafely<SessionApiBody>(res);
+        if (!res.ok || !data?.redirectTo || !data.role) {
+          exchangedToken.current = null;
+          logoutPollar();
+          setError(data?.error || "No se pudo abrir la sesión de Tonki.");
+          setBusy(null);
           return;
         }
-        if (res.ok) {
-          handleLoginSuccess(data);
-          return;
-        }
-
-        dispatch({
-          type: "SET_ERROR",
-          payload: data.error || "Error en inicio de sesión",
-        });
-      } catch (err) {
-        console.error(err);
-        dispatch({
-          type: "SET_ERROR",
-          payload: "No se pudo iniciar sesión",
-        });
-      } finally {
-        dispatch({ type: "SET_SUBMITTING", payload: false });
+        const target = sanitizeAuthReturnPath(from, data.role);
+        router.push(target ?? data.redirectTo);
+        router.refresh();
+      } catch {
+        exchangedToken.current = null;
+        setError("No se pudo abrir la sesión de Tonki.");
+        setBusy(null);
       }
     },
-    [handleLoginSuccess, state.password, state.username]
+    [from, logoutPollar, router]
   );
 
-  const handleWalletLogin = useCallback(async () => {
-    dispatch({ type: "SET_ERROR", payload: "" });
-    dispatch({ type: "SET_WALLET_LOADING", payload: true });
-    try {
-      const isAppConnected = await isConnected();
-
-      if (!isAppConnected.isConnected) {
-        dispatch({
-          type: "SET_ERROR",
-          payload: "Freighter no está disponible. Instala la extensión.",
-        });
+  useEffect(() => {
+    const client = getClient();
+    return client.onAuthStateChange((state) => {
+      if (state.step === "entering_code") {
+        setPhase("otp");
+        setBusy(null);
         return;
       }
-
-      const accessRes = await requestAccess();
-      if (accessRes.error) {
-        dispatch({
-          type: "SET_ERROR",
-          payload: "Acceso denegado. Aprueba la conexión en Freighter.",
-        });
+      if (state.step === "wallet_not_installed") {
+        setError("Freighter no está disponible. Instala la extensión.");
+        setBusy(null);
         return;
       }
-      const publicKey = accessRes.address;
-
-      const challengeRes = await fetch("/api/auth/wallet-challenge", {
-        credentials: "include",
-      });
-      const challengeBody = await readJsonSafely<{
-        success?: boolean;
-        message?: string;
-        error?: string;
-      }>(challengeRes);
-
-      if (!challengeRes.ok || !challengeBody?.success || !challengeBody.message) {
-        dispatch({
-          type: "SET_ERROR",
-          payload:
-            challengeBody?.error ??
-            "No se pudo obtener el reto de seguridad para la wallet.",
-        });
+      if (state.step === "error") {
+        setError(pollarErrorMessage(state));
+        setBusy(null);
         return;
       }
-
-      const signRes = await signMessage(challengeBody.message, {
-        address: publicKey,
-      });
-      if (signRes.error) {
-        dispatch({
-          type: "SET_ERROR",
-          payload: "No se pudo firmar el mensaje. Intenta de nuevo.",
-        });
-        return;
+      if (state.step === "authenticated" && state.verified) {
+        void exchangeSession(state.session.token.accessToken);
       }
+    });
+  }, [exchangeSession, getClient]);
 
-      const signature = signRes.signedMessage;
-
-      const res = await fetch("/api/auth/wallet-login", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ publicKey, signature }),
-      });
-
-      type WalletLoginApiBody = Partial<AuthResponse> &
-        Partial<WalletNeedsRegistrationResponse> & {
-          error?: string;
-          success?: boolean;
-        };
-
-      const data = await readJsonSafely<WalletLoginApiBody>(res);
-      if (data === null) {
-        dispatch({
-          type: "SET_ERROR",
-          payload: "Respuesta inválida del servidor",
-        });
-        return;
-      }
-      if (!res.ok) {
-        dispatch({
-          type: "SET_ERROR",
-          payload: data.error || "Error en login con wallet",
-        });
-        return;
-      }
-
-      if (data.needsRegistration && data.publicKey) {
-        dispatch({
-          type: "START_WALLET_REGISTER",
-          payload: { publicKey: data.publicKey },
-        });
-        return;
-      }
-
-      if (data.user && data.role && data.redirectTo) {
-        handleLoginSuccess({
-          message: data.message ?? "Inicio de sesión exitoso",
-          user: data.user,
-          role: data.role,
-          redirectTo: data.redirectTo,
-        });
-        return;
-      }
-
-      dispatch({
-        type: "SET_ERROR",
-        payload: "Respuesta inválida del servidor",
-      });
-    } catch (err) {
-      console.error(err);
-      dispatch({
-        type: "SET_ERROR",
-        payload: "No se pudo conectar la wallet",
-      });
-    } finally {
-      dispatch({ type: "SET_WALLET_LOADING", payload: false });
+  useEffect(() => {
+    if (!isAuthenticated || !verified) return;
+    const state = getClient().getAuthState();
+    if (state.step === "authenticated" && state.verified) {
+      void exchangeSession(state.session.token.accessToken);
     }
-  }, [handleLoginSuccess]);
+  }, [exchangeSession, getClient, isAuthenticated, verified]);
 
-  const handleWalletRegister = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      dispatch({ type: "SET_ERROR", payload: "" });
-      dispatch({ type: "SET_REGISTERING", payload: true });
-      try {
-        const res = await fetch("/api/auth/wallet-register", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: state.regEmail,
-            birthDate: state.regBirthDate,
-            ...(state.regName.trim() ? { name: state.regName.trim() } : {}),
-          }),
-        });
+  const startGoogle = useCallback(() => {
+    setError("");
+    setBusy("google");
+    login({ provider: "google" });
+  }, [login]);
 
-        type RegisterApiBody = AuthResponse & { error?: string };
-
-        const data = await readJsonSafely<RegisterApiBody>(res);
-        if (data === null) {
-          dispatch({
-            type: "SET_ERROR",
-            payload: "Respuesta inválida del servidor",
-          });
-          return;
-        }
-        if (!res.ok) {
-          dispatch({
-            type: "SET_ERROR",
-            payload: data.error || "No se pudo completar el registro",
-          });
-          if (res.status === 401) {
-            dispatch({ type: "CANCEL_WALLET_REGISTER" });
-          }
-          return;
-        }
-
-        handleLoginSuccess(data);
-      } catch (err) {
-        console.error(err);
-        dispatch({
-          type: "SET_ERROR",
-          payload: "No se pudo completar el registro",
-        });
-      } finally {
-        dispatch({ type: "SET_REGISTERING", payload: false });
+  const startEmail = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      const trimmed = email.trim();
+      if (!trimmed.includes("@")) {
+        setError("Escribe un correo válido.");
+        return;
       }
+      setError("");
+      setBusy("email");
+      login({ provider: "email", email: trimmed });
     },
-    [
-      handleLoginSuccess,
-      state.regBirthDate,
-      state.regEmail,
-      state.regName,
-    ]
+    [email, login]
   );
 
-  const handleGoogleLogin = useCallback(() => {
-    dispatch({ type: "SET_ERROR", payload: "" });
-    dispatch({ type: "SET_GOOGLE_LOADING", payload: true });
-    window.location.assign(buildGoogleStartUrl(from));
-  }, [from]);
+  const submitCode = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      const trimmed = code.trim();
+      if (!/^\d{4,8}$/.test(trimmed)) {
+        setError("Escribe el código que te enviamos.");
+        return;
+      }
+      setError("");
+      setBusy("email");
+      getClient().verifyEmailCode(trimmed);
+    },
+    [code, getClient]
+  );
 
-  const handleUsernameChange = useCallback((value: string) => {
-    dispatch({ type: "SET_USERNAME", payload: value });
-  }, []);
+  const startWallet = useCallback(() => {
+    setError("");
+    setBusy("wallet");
+    login({ provider: WalletType.FREIGHTER });
+  }, [login]);
 
-  const handlePasswordChange = useCallback((value: string) => {
-    dispatch({ type: "SET_PASSWORD", payload: value });
-  }, []);
+  const cancelOtp = useCallback(() => {
+    getClient().cancelLogin();
+    setPhase("methods");
+    setCode("");
+    setBusy(null);
+    setError("");
+  }, [getClient]);
 
-  const handleRegNameChange = useCallback((value: string) => {
-    dispatch({ type: "SET_REG_NAME", payload: value });
-  }, []);
-
-  const handleRegEmailChange = useCallback((value: string) => {
-    dispatch({ type: "SET_REG_EMAIL", payload: value });
-  }, []);
-
-  const handleRegBirthDateChange = useCallback((value: string) => {
-    dispatch({ type: "SET_REG_BIRTH_DATE", payload: value });
-  }, []);
-
-  const handleCancelWalletRegister = useCallback(() => {
-    dispatch({ type: "CANCEL_WALLET_REGISTER" });
-  }, []);
+  const disabled = busy !== null;
 
   return (
     <div className="login-page">
@@ -679,50 +210,78 @@ function LoginPageInner() {
           />
         </div>
 
-        {state.walletRegisterMode ? (
-          <>
-            <WalletRegisterForm
-              name={state.regName}
-              email={state.regEmail}
-              birthDate={state.regBirthDate}
-              publicKey={state.pendingPublicKey}
-              isSubmitting={state.isRegistering}
-              onNameChange={handleRegNameChange}
-              onEmailChange={handleRegEmailChange}
-              onBirthDateChange={handleRegBirthDateChange}
-              onSubmit={handleWalletRegister}
-              onCancel={handleCancelWalletRegister}
+        {phase === "otp" ? (
+          <form onSubmit={submitCode} className="login-form">
+            <p className="login-register-intro">
+              Te enviamos un código a <span className="login-mono">{email.trim()}</span>.
+            </p>
+            <label className="login-field-label" htmlFor="pollar-otp">
+              Código
+            </label>
+            <input
+              id="pollar-otp"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              className="login-input"
+              placeholder="123456"
             />
-            {state.error && <p className="login-error">{state.error}</p>}
-          </>
+            <button
+              type="submit"
+              disabled={disabled}
+              className="login-btn login-btn-primary"
+            >
+              {busy === "email" ? "Verificando…" : "Verificar código"}
+            </button>
+            <button
+              type="button"
+              onClick={cancelOtp}
+              disabled={disabled && busy !== null && busy !== "email"}
+              className="login-btn login-btn-outline"
+            >
+              Usar otro método
+            </button>
+          </form>
         ) : (
           <>
-            <LoginForm
-              username={state.username}
-              password={state.password}
-              isSubmitting={state.isSubmitting}
-              onUsernameChange={handleUsernameChange}
-              onPasswordChange={handlePasswordChange}
-              onSubmit={handleSubmit}
-            />
-
-            {state.error && <p className="login-error">{state.error}</p>}
+            <form onSubmit={startEmail} className="login-form">
+              <label className="login-field-label" htmlFor="pollar-email">
+                Correo
+              </label>
+              <input
+                id="pollar-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="login-input"
+                placeholder="tu@correo.com"
+              />
+              <button
+                type="submit"
+                disabled={disabled}
+                className="login-btn login-btn-primary"
+              >
+                {busy === "email" ? "Enviando código…" : "Continuar con correo"}
+              </button>
+            </form>
 
             <div className="login-divider">
               <hr className="login-divider-line" />
-              <span className="login-divider-label">Crea tu cuenta con Gmail</span>
+              <span className="login-divider-label">o</span>
               <hr className="login-divider-line" />
             </div>
 
-            <GoogleButton
-              onClick={handleGoogleLogin}
-              isLoading={state.isGoogleLoading}
-              disabled={
-                state.isGoogleLoading ||
-                state.isSubmitting ||
-                state.isWalletLoading
-              }
-            />
+            <button
+              type="button"
+              onClick={startGoogle}
+              disabled={disabled}
+              className="login-btn login-btn-outline login-btn-google"
+            >
+              <GoogleIcon />
+              {busy === "google" ? "Conectando con Gmail…" : "Continuar con Gmail"}
+            </button>
 
             <div className="login-divider">
               <hr className="login-divider-line" />
@@ -730,18 +289,61 @@ function LoginPageInner() {
               <hr className="login-divider-line" />
             </div>
 
-            <WalletButton
-              onClick={handleWalletLogin}
-              isLoading={state.isWalletLoading}
-            />
+            <button
+              type="button"
+              onClick={startWallet}
+              disabled={disabled}
+              className="login-btn login-btn-outline"
+            >
+              {busy === "wallet" ? "Conectando Freighter…" : "Conectar con Freighter"}
+            </button>
           </>
         )}
+
+        {busy === "session" ? (
+          <p className="login-register-intro">Abriendo tu cuenta…</p>
+        ) : null}
+        {error ? <p className="login-error">{error}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function MissingPollarConfig() {
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-brand">
+          <img
+            src="/Logos-Tonki-SVG/Logo lateral caf-amarillo.svg"
+            alt="Tonki"
+            width={180}
+            height={62}
+            className="login-logo"
+          />
+        </div>
+        <p className="login-error">
+          Falta NEXT_PUBLIC_POLLAR_PUBLISHABLE_KEY. Crea la app en el dashboard de
+          Pollar y agrega la clave publicable.
+        </p>
       </div>
     </div>
   );
 }
 
 export default function LoginPage() {
+  const configured = Boolean(readPollarPublishableKey());
+  const ready = usePollarReady();
+
+  if (!configured) return <MissingPollarConfig />;
+  if (!ready) {
+    return (
+      <div className="login-fallback">
+        <p className="login-fallback-text">Cargando…</p>
+      </div>
+    );
+  }
+
   return (
     <Suspense
       fallback={
@@ -750,7 +352,7 @@ export default function LoginPage() {
         </div>
       }
     >
-      <LoginPageInner />
+      <PollarLogin />
     </Suspense>
   );
 }

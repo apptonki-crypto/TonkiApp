@@ -1,7 +1,5 @@
 import type { PublicUser } from "src/types/auth";
 
-export type PublicUserDTO = PublicUser;
-
 type UserLike = {
   user_id: string;
   email: string | null;
@@ -37,7 +35,7 @@ export function composeDisplayName(
 export function toPublicUserDTO(
   user: UserLike,
   username: string | null
-): PublicUserDTO {
+): PublicUser {
   return {
     id: user.user_id,
     email: user.email,

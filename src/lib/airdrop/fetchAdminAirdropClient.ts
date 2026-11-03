@@ -1,4 +1,5 @@
-import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import { fetchSessionJson } from "src/lib/api/fetchSessionJson";
+import { normalizeAirdropAssetCode } from "src/lib/airdrop/constants";
 
 import {
   isAirdropPageSuccess,
@@ -12,55 +13,30 @@ export type FetchAdminAirdropResult =
 export async function fetchAdminAirdrop(opts: {
   networkErrorMessage: string;
 }): Promise<FetchAdminAirdropResult> {
-  try {
-    const res = await fetch("/api/admin/airdrop", {
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    if (res.status === 401) {
-      return { ok: false, error: "No autenticado", unauthorized: true };
-    }
-
-    const body = await readJsonSafely(res);
-    if (body === null) {
-      return { ok: false, error: "Respuesta inválida del servidor" };
-    }
-
-    if (!res.ok) {
-      const err = body as { error?: string };
-      return { ok: false, error: err.error || `Error ${res.status}` };
-    }
-
-    if (!isAirdropPageSuccess(body)) {
-      return { ok: false, error: "Formato de datos inesperado" };
-    }
-
-    const {
-      amount,
-      asset,
-      source_public_key,
-      scheduled_date,
-      scheduled_end_date,
-      max_users,
-      periodicity_months,
-      users,
-    } = body;
-
-    return {
-      ok: true,
-      data: {
+  return fetchSessionJson("/api/admin/airdrop", {
+    networkErrorMessage: opts.networkErrorMessage,
+    parse: (body) => {
+      if (!isAirdropPageSuccess(body)) return null;
+      const {
         amount,
-        asset: asset === "XLM" || asset === "USDC" || asset === "TONKI" ? asset : "TONKI",
+        asset,
+        source_public_key,
+        scheduled_date,
+        scheduled_end_date,
+        max_users,
+        periodicity_months,
+        users,
+      } = body;
+      return {
+        amount,
+        asset: normalizeAirdropAssetCode(asset),
         source_public_key,
         scheduled_date,
         scheduled_end_date: scheduled_end_date ?? null,
         max_users,
         periodicity_months,
         users,
-      },
-    };
-  } catch {
-    return { ok: false, error: opts.networkErrorMessage };
-  }
+      };
+    },
+  });
 }

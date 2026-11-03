@@ -27,6 +27,8 @@ import {
   POST_BODY_MAX_CHARS,
   POST_TITLE_MAX_CHARS,
 } from "src/lib/posts/schemas";
+import { AdminPostDynamics } from "src/components/posts/AdminPostDynamics";
+import type { NormalizedDynamic } from "src/lib/posts/dynamicClient";
 import { ImageAttachmentGrid } from "../../(app)/dashboard/ImageAttachmentGrid";
 import type { FeedPost, FeedPostAttachment } from "src/lib/posts/feedTypes";
 import { fetchPostsListPage } from "src/lib/posts/fetchPostsListClient";
@@ -742,6 +744,19 @@ export function AdminMyPostsTab() {
                     {p.body}
                   </p>
                 )}
+                <AdminPostDynamics
+                  post={p}
+                  onDynamicsChange={(dynamics: NormalizedDynamic[]) => {
+                    setPosts((prev) =>
+                      prev.map((item) =>
+                        item.post_id === p.post_id ? { ...item, dynamics } : item
+                      )
+                    );
+                    setEditing((current) =>
+                      current?.post_id === p.post_id ? { ...current, dynamics } : current
+                    );
+                  }}
+                />
                 {imgs.length > 0 && (
                   <div className="mt-2 max-w-xl">
                     <ImageAttachmentGrid

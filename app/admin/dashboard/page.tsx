@@ -106,7 +106,7 @@ export default function AdminDashboardPage() {
   return (
     <>
       <div className="border-b border-tonki-chrome-border bg-tonki-chrome/95">
-        <h1 className="sr-only">Centro admin</h1>
+        <h1 className="sr-only">Centro admin · contenido y publicaciones</h1>
         <div
           role="tablist"
           className="mx-auto grid w-full grid-cols-3 border-t border-tonki-chrome-border"

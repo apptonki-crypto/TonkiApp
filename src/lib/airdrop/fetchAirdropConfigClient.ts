@@ -1,4 +1,4 @@
-import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import { fetchSessionJson } from "src/lib/api/fetchSessionJson";
 
 import type { AirdropConfigFormValues } from "./schemas";
 import type { AirdropConfigPayload } from "./types";
@@ -35,83 +35,40 @@ function isConfigGetSuccess(
 export async function fetchAirdropConfig(opts: {
   networkErrorMessage: string;
 }): Promise<FetchAirdropConfigResult> {
-  try {
-    const res = await fetch("/api/admin/airdrop/config", {
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    if (res.status === 401) {
-      return { ok: false, error: "No autenticado", unauthorized: true };
-    }
-
-    const body = await readJsonSafely(res);
-    if (body === null) {
-      return { ok: false, error: "Respuesta inválida del servidor" };
-    }
-
-    if (!res.ok) {
-      const err = body as { error?: string };
-      return { ok: false, error: err.error || `Error ${res.status}` };
-    }
-
-    if (!isConfigGetSuccess(body)) {
-      return { ok: false, error: "Formato de datos inesperado" };
-    }
-
-    return { ok: true, data: { config: body.config } };
-  } catch {
-    return { ok: false, error: opts.networkErrorMessage };
-  }
+  return fetchSessionJson("/api/admin/airdrop/config", {
+    networkErrorMessage: opts.networkErrorMessage,
+    parse: (body) => {
+      if (!isConfigGetSuccess(body)) return null;
+      return { config: body.config };
+    },
+  });
 }
 
 export async function saveAirdropConfig(
   values: AirdropConfigFormValues
 ): Promise<SaveAirdropConfigResult> {
-  try {
-    const res = await fetch("/api/admin/airdrop/config", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    });
+  const result = await fetchSessionJson<
+    NonNullable<AirdropConfigPayload["config"]>
+  >("/api/admin/airdrop/config", {
+    networkErrorMessage: "No se pudo guardar la configuración",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(values),
+    parse: (body) => {
+      if (typeof body !== "object" || body === null) return null;
+      if ((body as { success?: boolean }).success !== true) return null;
+      const config = (body as { config?: unknown }).config;
+      if (
+        typeof config !== "object" ||
+        config === null ||
+        typeof (config as { amount?: unknown }).amount !== "number"
+      ) {
+        return null;
+      }
+      return config as NonNullable<AirdropConfigPayload["config"]>;
+    },
+  });
 
-    if (res.status === 401) {
-      return { ok: false, error: "No autenticado", unauthorized: true };
-    }
-
-    const body = await readJsonSafely(res);
-    if (body === null) {
-      return { ok: false, error: "Respuesta inválida del servidor" };
-    }
-
-    if (!res.ok) {
-      const err = body as { error?: string };
-      return { ok: false, error: err.error || `Error ${res.status}` };
-    }
-
-    if (
-      typeof body !== "object" ||
-      body === null ||
-      (body as { success?: boolean }).success !== true
-    ) {
-      return { ok: false, error: "Formato de datos inesperado" };
-    }
-
-    const config = (body as { config?: unknown }).config;
-    if (
-      typeof config !== "object" ||
-      config === null ||
-      typeof (config as { amount?: unknown }).amount !== "number"
-    ) {
-      return { ok: false, error: "Formato de datos inesperado" };
-    }
-
-    return {
-      ok: true,
-      config: config as NonNullable<AirdropConfigPayload["config"]>,
-    };
-  } catch {
-    return { ok: false, error: "No se pudo guardar la configuración" };
-  }
+  if (!result.ok) return result;
+  return { ok: true, config: result.data };
 }

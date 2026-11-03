@@ -11,8 +11,13 @@ import {
   type FormEvent,
 } from "react";
 
+import { usePollarLogout } from "src/components/PollarAppProvider";
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import { clearTonkiSession } from "src/lib/auth/clearTonkiSession";
 import type { AuthMePayload, PublicUser, UserRole } from "src/types/auth";
+
+import { BusinessProfileSection } from "./BusinessProfileSection";
+import { UserTonkisSection } from "./UserTonkisSection";
 
 type ApiEnvelope =
   | (AuthMePayload & { success: true })
@@ -46,6 +51,7 @@ function truncateWallet(wallet: string): string {
 
 export default function AccountPage() {
   const router = useRouter();
+  const logoutPollar = usePollarLogout();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<UserRole>("user");
@@ -165,16 +171,14 @@ export default function AccountPage() {
   const handleLogout = useCallback(async () => {
     setLogoutBusy(true);
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      logoutPollar();
+      await clearTonkiSession();
       router.replace("/login");
       router.refresh();
     } catch {
       setLogoutBusy(false);
     }
-  }, [router]);
+  }, [logoutPollar, router]);
 
   if (loading || !user) {
     return (
@@ -194,6 +198,9 @@ export default function AccountPage() {
       <p className="mt-2 text-sm text-tonki-text-muted sm:text-base">
         Actualiza tus datos personales.
       </p>
+
+      {role === "admin" ? <BusinessProfileSection /> : null}
+      {role === "user" ? <UserTonkisSection /> : null}
 
       <section className="mt-8 space-y-6 rounded-2xl border border-tonki-border bg-tonki-surface p-6 shadow-sm sm:p-8">
         <div>
@@ -224,13 +231,13 @@ export default function AccountPage() {
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-tonki-border bg-tonki-canvas text-sm font-semibold text-tonki-text-muted">
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-tonki-border bg-tonki-canvas p-1 text-sm font-semibold text-tonki-text-muted">
               {avatarPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={avatarPreview}
                   alt="Avatar"
-                  className="h-full w-full object-cover"
+                  className="max-h-full max-w-full object-contain"
                 />
               ) : (
                 "Sin foto"
@@ -396,12 +403,20 @@ export default function AccountPage() {
 
         <div className="space-y-3 border-t border-tonki-border pt-6">
           {role === "admin" && (
-            <Link
-              href="/admin/dashboard"
-              className="block w-full rounded-xl border border-tonki-border px-4 py-3 text-center text-base font-semibold text-tonki-accent transition-colors hover:bg-tonki-elevated"
-            >
-              Panel admin · contenido
-            </Link>
+            <>
+              <Link
+                href="/admin/dashboard"
+                className="block w-full rounded-xl border border-tonki-border px-4 py-3 text-center text-base font-semibold text-tonki-accent transition-colors hover:bg-tonki-elevated"
+              >
+                Panel admin · contenido
+              </Link>
+              <Link
+                href="/admin/crm"
+                className="block w-full rounded-xl border border-tonki-border px-4 py-3 text-center text-base font-semibold text-tonki-accent transition-colors hover:bg-tonki-elevated"
+              >
+                CRM · ventas
+              </Link>
+            </>
           )}
 
           <Link

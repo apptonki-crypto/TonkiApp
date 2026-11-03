@@ -1,4 +1,4 @@
-import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import { fetchSessionJson } from "src/lib/api/fetchSessionJson";
 import type {
   AirdropHistoryLogRecord,
   AirdropHistoryPayload,
@@ -19,37 +19,11 @@ function isHistoryPayload(data: unknown): data is AirdropHistoryPayload & {
 export async function fetchAirdropHistory(opts: {
   networkErrorMessage: string;
 }): Promise<FetchAirdropHistoryResult> {
-  try {
-    const res = await fetch("/api/admin/airdrop/history", {
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    if (res.status === 401) {
-      return { ok: false, error: "No autenticado", unauthorized: true };
-    }
-
-    const body = await readJsonSafely(res);
-    if (body === null) {
-      return { ok: false, error: "Respuesta inválida del servidor" };
-    }
-
-    if (!res.ok) {
-      const err = body as { error?: string };
-      return { ok: false, error: err.error || `Error ${res.status}` };
-    }
-
-    if (!isHistoryPayload(body)) {
-      return { ok: false, error: "Formato de datos inesperado" };
-    }
-
-    return {
-      ok: true,
-      data: {
-        logs: body.logs as AirdropHistoryLogRecord[],
-      },
-    };
-  } catch {
-    return { ok: false, error: opts.networkErrorMessage };
-  }
+  return fetchSessionJson("/api/admin/airdrop/history", {
+    networkErrorMessage: opts.networkErrorMessage,
+    parse: (body) => {
+      if (!isHistoryPayload(body)) return null;
+      return { logs: body.logs as AirdropHistoryLogRecord[] };
+    },
+  });
 }

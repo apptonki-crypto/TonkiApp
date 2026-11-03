@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -142,6 +143,7 @@ export function RewardsExperience() {
           title="Tabla de consumos"
           emptyMessage="Aún no tienes consumos registrados en establecimientos."
           entries={payload?.consumptions ?? []}
+          linkPlaces
         />
       )}
 
@@ -223,10 +225,12 @@ function PodiumSection({
   title,
   emptyMessage,
   entries,
+  linkPlaces = false,
 }: {
   title: string;
   emptyMessage: string;
   entries: RewardsPodiumEntry[];
+  linkPlaces?: boolean;
 }) {
   const byRank = new Map(entries.map((e) => [e.rank, e]));
   const ordered = [byRank.get(2), byRank.get(1), byRank.get(3)].filter(
@@ -243,7 +247,7 @@ function PodiumSection({
       ) : (
         <div className="mt-4 flex items-end justify-center gap-3 rounded-2xl border border-tonki-border bg-tonki-surface p-5">
           {ordered.map((entry) => (
-            <PodiumItem key={entry.id} entry={entry} />
+            <PodiumItem key={entry.id} entry={entry} linkPlaces={linkPlaces} />
           ))}
         </div>
       )}
@@ -260,7 +264,13 @@ const PODIUM_STYLE: Record<
   3: { ring: "ring-tonki-border-strong", size: "h-16 w-16", lift: "mt-2", medal: "🥉" },
 };
 
-function PodiumItem({ entry }: { entry: RewardsPodiumEntry }) {
+function PodiumItem({
+  entry,
+  linkPlaces,
+}: {
+  entry: RewardsPodiumEntry;
+  linkPlaces: boolean;
+}) {
   const style = PODIUM_STYLE[entry.rank];
   const initial = entry.name.trim().charAt(0).toUpperCase() || "?";
 
@@ -285,9 +295,18 @@ function PodiumItem({ entry }: { entry: RewardsPodiumEntry }) {
           {style.medal}
         </span>
       </div>
-      <p className="mt-3 max-w-full truncate text-sm font-semibold text-tonki-text">
-        {entry.name}
-      </p>
+      {linkPlaces ? (
+        <Link
+          href={`/negocios?lugar=${entry.id}`}
+          className="mt-3 max-w-full truncate text-sm font-semibold text-tonki-accent"
+        >
+          {entry.name}
+        </Link>
+      ) : (
+        <p className="mt-3 max-w-full truncate text-sm font-semibold text-tonki-text">
+          {entry.name}
+        </p>
+      )}
       <p className="text-xs font-medium text-tonki-text-muted">
         {formatPoints(entry.points)} pts
       </p>
@@ -376,9 +395,12 @@ function RewardCard({
         <h3 className="text-sm font-bold leading-snug tracking-tight text-tonki-text">
           {reward.title}
         </h3>
-        <p className="mt-0.5 text-xs font-medium text-tonki-text-muted">
+        <Link
+          href={`/negocios?lugar=${reward.establishment_id}`}
+          className="mt-0.5 text-xs font-medium text-tonki-accent"
+        >
           {reward.establishment_name}
-        </p>
+        </Link>
         <p className="mt-1 line-clamp-2 text-xs text-tonki-text-secondary">
           {reward.short_description}
         </p>

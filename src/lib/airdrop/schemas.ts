@@ -54,9 +54,6 @@ export const airdropSendBodySchema = z.object({
     .optional(),
 });
 
-export type AirdropPrepareBody = z.infer<typeof airdropPrepareBodySchema>;
-export type AirdropSendBody = z.infer<typeof airdropSendBodySchema>;
-
 /** Convierte `YYYY-MM-DD` del formulario a `Date` UTC estable. */
 export function parseAirdropScheduledDate(isoDate: string): Date {
   return new Date(`${isoDate}T12:00:00.000Z`);

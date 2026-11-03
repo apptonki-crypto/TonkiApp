@@ -13,11 +13,177 @@ import {
   POST_MAX_ATTACHMENTS,
   postUploadMaxSizeLabelEs,
 } from "src/lib/posts/constants";
-import { updatePostFormFieldsSchema } from "src/lib/posts/schemas";
+import {
+  POST_BODY_MAX_CHARS,
+  POST_TITLE_MAX_CHARS,
+  updatePostFormFieldsSchema,
+} from "src/lib/posts/schemas";
+import { findFirstAdminEstablishmentId } from "src/lib/posts/adminEstablishment";
+import {
+  applyDynamicPatch,
+  listExistingDynamics,
+} from "src/lib/posts/applyPostDynamics";
+import {
+  PostDynamicRequestError,
+  interpretDynamicsPatch,
+  type ParsedDynamicsPatch,
+} from "src/lib/posts/dynamicRequests";
+import { loadPublicDynamicsForPost } from "src/lib/posts/loadPublicDynamics";
 
 const postIdParamSchema = z.string().uuid();
 
 const removedIdsSchema = z.array(z.string().uuid()).max(20);
+
+const jsonPatchSchema = z.object({
+  title: z.string().trim().min(1).max(POST_TITLE_MAX_CHARS).optional(),
+  body: z.union([z.string().max(POST_BODY_MAX_CHARS), z.null()]).optional(),
+  removedAttachmentIds: removedIdsSchema.optional(),
+  dynamics: z.unknown().optional(),
+});
+
+type IncomingPatch = {
+  title: string;
+  body: string | null;
+  removedAttachmentIds: string[];
+  newFiles: File[];
+  dynamicsRaw: unknown | undefined;
+};
+
+function emptyBody(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+async function readIncomingPatch(
+  req: Request,
+  existing: { title: string; body: string | null }
+): Promise<
+  { ok: true; data: IncomingPatch } | { ok: false; response: Response }
+> {
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return { ok: false, response: apiError("Cuerpo inválido", 400) };
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return { ok: false, response: apiError("Cuerpo inválido", 400) };
+    }
+    const parsed = jsonPatchSchema.safeParse(body);
+    if (!parsed.success) {
+      const invalidRemoved = parsed.error.issues.some(
+        (issue) => issue.path[0] === "removedAttachmentIds"
+      );
+      return {
+        ok: false,
+        response: apiError(
+          invalidRemoved
+            ? "removedAttachmentIds inválido"
+            : "Título o cuerpo inválido",
+          400
+        ),
+      };
+    }
+    const hasDynamics = Object.prototype.hasOwnProperty.call(body, "dynamics");
+    return {
+      ok: true,
+      data: {
+        title: parsed.data.title ?? existing.title,
+        body:
+          parsed.data.body === undefined
+            ? existing.body
+            : emptyBody(parsed.data.body),
+        removedAttachmentIds: parsed.data.removedAttachmentIds ?? [],
+        newFiles: [],
+        dynamicsRaw: hasDynamics ? parsed.data.dynamics : undefined,
+      },
+    };
+  }
+
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch {
+    return { ok: false, response: apiError("Cuerpo multipart inv?lido", 400) };
+  }
+
+  const titleRaw = formData.get("title");
+  const bodyRaw = formData.get("body");
+  const bodyForSchema =
+    typeof bodyRaw === "string" && bodyRaw.trim().length > 0
+      ? bodyRaw
+      : undefined;
+
+  const fieldsParsed = updatePostFormFieldsSchema.safeParse({
+    title: typeof titleRaw === "string" ? titleRaw : "",
+    body: bodyForSchema,
+  });
+  if (!fieldsParsed.success) {
+    return { ok: false, response: apiError("T?tulo o cuerpo inv?lido", 400) };
+  }
+
+  const dynamicsField = formData.get("dynamics");
+  if (dynamicsField != null && typeof dynamicsField !== "string") {
+    return { ok: false, response: apiError("Dinámicas inválidas.", 400) };
+  }
+
+  let removedAttachmentIds: string[] = [];
+  const removedRaw = formData.get("removedAttachmentIds");
+  if (typeof removedRaw === "string" && removedRaw.trim()) {
+    try {
+      const parsedJson: unknown = JSON.parse(removedRaw);
+      const arr = removedIdsSchema.safeParse(parsedJson);
+      if (!arr.success) {
+        return {
+          ok: false,
+          response: apiError("removedAttachmentIds inv?lido", 400),
+        };
+      }
+      removedAttachmentIds = arr.data;
+    } catch {
+      return {
+        ok: false,
+        response: apiError("removedAttachmentIds inv?lido", 400),
+      };
+    }
+  }
+
+  const rawBody = fieldsParsed.data.body;
+  return {
+    ok: true,
+    data: {
+      title: fieldsParsed.data.title,
+      body:
+        rawBody !== undefined && rawBody.trim().length > 0
+          ? rawBody.trim()
+          : null,
+      removedAttachmentIds,
+      newFiles: formData
+        .getAll("files")
+        .filter((file): file is File => file instanceof File && file.size > 0),
+      dynamicsRaw: typeof dynamicsField === "string" ? dynamicsField : undefined,
+    },
+  };
+}
+
+async function respondWithDynamics(
+  userId: string,
+  postId: string,
+  payload: {
+    message: string;
+    post_id: string;
+    updated_at: string;
+    was_edited: boolean;
+  }
+) {
+  const dynamics = await loadPublicDynamicsForPost(postId, userId, undefined, {
+    includeAuthorCode: true,
+  });
+  return apiSuccess({ ...payload, dynamics });
+}
 
 export async function GET(
   _req: Request,
@@ -53,7 +219,7 @@ export async function GET(
         updated_at: true,
         content_edited_at: true,
         author: {
-          select: { user_id: true, name: true },
+          select: { user_id: true, name: true, avatar_url: true },
         },
         attachments: {
           select: {
@@ -66,6 +232,14 @@ export async function GET(
       },
     });
     if (!post) return apiError("Publicaci?n no encontrada", 404);
+
+    const viewerIsAuthor = post.author.user_id === session.userId;
+    const dynamics = await loadPublicDynamicsForPost(
+      post.post_id,
+      session.userId,
+      undefined,
+      { includeAuthorCode: viewerIsAuthor }
+    );
 
     return apiSuccess({
       post: {
@@ -80,6 +254,7 @@ export async function GET(
         author: {
           user_id: post.author.user_id,
           name: post.author.name,
+          avatar_url: post.author.avatar_url,
         },
         attachments: post.attachments.map((a) => ({
           attachment_id: a.attachment_id,
@@ -87,6 +262,7 @@ export async function GET(
           mime_type: a.mime_type,
           original_name: a.original_name,
         })),
+        dynamics,
       },
     });
   } catch {
@@ -126,90 +302,48 @@ export async function PATCH(
       return apiError("Prohibido", 403);
     }
 
-    let formData: FormData;
-    try {
-      formData = await req.formData();
-    } catch {
-      return apiError("Cuerpo multipart inv?lido", 400);
-    }
-
-    const titleRaw = formData.get("title");
-    const bodyRaw = formData.get("body");
-    const bodyForSchema =
-      typeof bodyRaw === "string" && bodyRaw.trim().length > 0
-        ? bodyRaw
-        : undefined;
-
-    const fieldsParsed = updatePostFormFieldsSchema.safeParse({
-      title: typeof titleRaw === "string" ? titleRaw : "",
-      body: bodyForSchema,
+    const incoming = await readIncomingPatch(req, {
+      title: existingPost.title,
+      body: existingPost.body ?? null,
     });
-    if (!fieldsParsed.success) {
-      return apiError("T?tulo o cuerpo inv?lido", 400);
-    }
+    if (!incoming.ok) return incoming.response;
 
-    const title = fieldsParsed.data.title;
-    const rawBody = fieldsParsed.data.body;
-    const body =
-      rawBody !== undefined && rawBody.trim().length > 0
-        ? rawBody.trim()
-        : null;
-
-    let removedAttachmentIds: string[] = [];
-    const removedRaw = formData.get("removedAttachmentIds");
-    if (typeof removedRaw === "string" && removedRaw.trim()) {
-      try {
-        const parsedJson: unknown = JSON.parse(removedRaw);
-        const arr = removedIdsSchema.safeParse(parsedJson);
-        if (!arr.success) {
-          return apiError("removedAttachmentIds inv?lido", 400);
-        }
-        removedAttachmentIds = arr.data;
-      } catch {
-        return apiError("removedAttachmentIds inv?lido", 400);
-      }
-    }
-
-    const candidates = formData.getAll("files");
-    const newFiles = candidates.filter(
-      (f): f is File => f instanceof File && f.size > 0
-    );
-
-    const uniqueRemovedIds = [...new Set(removedAttachmentIds)];
+    const title = incoming.data.title;
+    const body = incoming.data.body;
+    const uniqueRemovedIds = [...new Set(incoming.data.removedAttachmentIds)];
+    const newFiles = incoming.data.newFiles;
     const attachmentMutation =
       uniqueRemovedIds.length > 0 || newFiles.length > 0;
     const sameText =
-      existingPost.title === title &&
-      (existingPost.body ?? null) === body;
+      existingPost.title === title && (existingPost.body ?? null) === body;
 
-    if (!attachmentMutation) {
-      if (sameText) {
-        return apiSuccess({
-          message: "Sin cambios",
-          post_id: pid.data,
-          updated_at: existingPost.updated_at.toISOString(),
-          was_edited: existingPost.content_edited_at != null,
-        });
+    let dynamicPatch: ParsedDynamicsPatch | null = null;
+    let dynamicsChange = false;
+    if (incoming.data.dynamicsRaw !== undefined) {
+      const [existingDynamics, establishmentId] = await Promise.all([
+        listExistingDynamics(pid.data),
+        findFirstAdminEstablishmentId(userId),
+      ]);
+      const interpreted = interpretDynamicsPatch(
+        incoming.data.dynamicsRaw,
+        existingDynamics,
+        establishmentId
+      );
+      if (!interpreted.ok) {
+        return apiError(interpreted.error, interpreted.status);
       }
-      const row = await prisma.post.update({
-        where: { post_id: pid.data },
-        data: {
-          title,
-          body,
-          ...(existingPost.content_edited_at == null
-            ? { content_edited_at: new Date() }
-            : {}),
-        },
-        select: { updated_at: true, content_edited_at: true },
-      });
-      return apiSuccess({
-        message: "Actualizado",
-        post_id: pid.data,
-        updated_at: row.updated_at.toISOString(),
-        was_edited: row.content_edited_at != null,
-      });
+      dynamicPatch = interpreted.patch;
+      dynamicsChange = interpreted.ops.length > 0;
     }
 
+    if (!attachmentMutation && sameText && !dynamicsChange) {
+      return respondWithDynamics(userId, pid.data, {
+        message: "Sin cambios",
+        post_id: pid.data,
+        updated_at: existingPost.updated_at.toISOString(),
+        was_edited: existingPost.content_edited_at != null,
+      });
+    }
 
     if (uniqueRemovedIds.length > 0) {
       const removable = await prisma.postAttachment.findMany({
@@ -221,9 +355,33 @@ export async function PATCH(
       if (removable.length !== uniqueRemovedIds.length) {
         return apiError("Adjunto que no pertenece a esta publicaci?n", 400);
       }
+    }
 
-      for (const a of removable) {
-        const fsPath = resolveSafePostAttachmentPath(a.url, pid.data);
+    if (attachmentMutation) {
+      const current = await prisma.postAttachment.count({
+        where: { post_id: pid.data },
+      });
+      if (
+        current - uniqueRemovedIds.length + newFiles.length >
+        POST_MAX_ATTACHMENTS
+      ) {
+        return apiError(`M?ximo ${POST_MAX_ATTACHMENTS} archivos`, 400);
+      }
+    }
+
+    if (dynamicsChange && dynamicPatch) {
+      await applyDynamicPatch({ postId: pid.data, patch: dynamicPatch });
+    }
+
+    if (uniqueRemovedIds.length > 0) {
+      const removable = await prisma.postAttachment.findMany({
+        where: {
+          post_id: pid.data,
+          attachment_id: { in: uniqueRemovedIds },
+        },
+      });
+      for (const attachment of removable) {
+        const fsPath = resolveSafePostAttachmentPath(attachment.url, pid.data);
         if (!fsPath) continue;
         try {
           await unlink(fsPath);
@@ -231,7 +389,6 @@ export async function PATCH(
           /* archivo ausente en disco: no abortar el PATCH por ello */
         }
       }
-
       await prisma.postAttachment.deleteMany({
         where: {
           post_id: pid.data,
@@ -240,15 +397,13 @@ export async function PATCH(
       });
     }
 
-    const remaining = await prisma.postAttachment.count({
-      where: { post_id: pid.data },
-    });
-
-    if (remaining + newFiles.length > POST_MAX_ATTACHMENTS) {
-      return apiError(`M?ximo ${POST_MAX_ATTACHMENTS} archivos`, 400);
-    }
-
     if (newFiles.length > 0) {
+      const remaining = await prisma.postAttachment.count({
+        where: { post_id: pid.data },
+      });
+      if (remaining + newFiles.length > POST_MAX_ATTACHMENTS) {
+        return apiError(`M?ximo ${POST_MAX_ATTACHMENTS} archivos`, 400);
+      }
       try {
         const savedRows: {
           url: string;
@@ -263,11 +418,11 @@ export async function PATCH(
           );
         }
         await prisma.postAttachment.createMany({
-          data: savedRows.map((s) => ({
+          data: savedRows.map((saved) => ({
             post_id: pid.data,
-            url: s.url,
-            mime_type: s.mime_type,
-            original_name: s.original_name,
+            url: saved.url,
+            mime_type: saved.mime_type,
+            original_name: saved.original_name,
           })),
         });
       } catch (e) {
@@ -287,25 +442,34 @@ export async function PATCH(
       }
     }
 
-    const row = await prisma.post.update({
-      where: { post_id: pid.data },
-      data: {
-        title,
-        body,
-        ...(existingPost.content_edited_at == null
-          ? { content_edited_at: new Date() }
-          : {}),
-      },
-      select: { updated_at: true, content_edited_at: true },
-    });
+    let updatedAt = existingPost.updated_at;
+    let contentEditedAt = existingPost.content_edited_at;
+    if (attachmentMutation || !sameText) {
+      const row = await prisma.post.update({
+        where: { post_id: pid.data },
+        data: {
+          title,
+          body,
+          ...(existingPost.content_edited_at == null
+            ? { content_edited_at: new Date() }
+            : {}),
+        },
+        select: { updated_at: true, content_edited_at: true },
+      });
+      updatedAt = row.updated_at;
+      contentEditedAt = row.content_edited_at;
+    }
 
-    return apiSuccess({
+    return respondWithDynamics(userId, pid.data, {
       message: "Actualizado",
       post_id: pid.data,
-      updated_at: row.updated_at.toISOString(),
-      was_edited: row.content_edited_at != null,
+      updated_at: updatedAt.toISOString(),
+      was_edited: contentEditedAt != null,
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof PostDynamicRequestError) {
+      return apiError(err.message, err.status);
+    }
     return apiError("Error al actualizar la publicaci?n", 500);
   }
 }

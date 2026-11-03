@@ -1,0 +1,735 @@
+/* Landing BORRADOR — scoped so the rest of Tonki keeps its tokens. */
+
+.borrador {
+  --b-gold: #f4c542;
+  --b-gold-deep: #e3a51a;
+  --b-amber: #ffba30;
+  --b-ink: #151008;
+  --b-ink-soft: #201509;
+  --b-cream: #fff5e8;
+  --b-cream-2: #fffaf2;
+  --b-card: #fff9f1;
+  --b-muted: #5a4527;
+  --b-line: rgba(32, 21, 9, 0.14);
+  --b-font-display: var(--font-sora), "Sora", sans-serif;
+  --b-font-body: var(--font-inter), "Inter", sans-serif;
+
+  background: var(--b-cream-2);
+  color: var(--b-ink);
+  font-family: var(--b-font-body);
+}
+
+html:has(.borrador) {
+  scroll-behavior: smooth;
+  scroll-padding-top: 7.5rem;
+}
+
+.borrador h1,
+.borrador h2,
+.borrador h3,
+.borrador .b-display {
+  font-family: var(--b-font-display);
+}
+
+.borrador a {
+  text-decoration: none;
+}
+
+.b-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  padding: 0.85rem 1.25rem;
+}
+
+.b-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #111;
+  flex-shrink: 0;
+}
+
+.b-brand img {
+  width: 52px;
+  height: 58px;
+}
+
+.b-brand span {
+  font-family: var(--b-font-display);
+  font-weight: 800;
+  font-size: 1.65rem;
+  letter-spacing: 0.04em;
+}
+
+.b-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.35rem;
+  margin-inline: auto;
+  min-height: 52px;
+  padding: 0 1.4rem;
+  border-radius: 999px;
+  background: var(--b-gold);
+  box-shadow: 6px 8px 15px rgba(0, 0, 0, 0.08);
+}
+
+.b-nav a {
+  color: #111;
+  font-family: var(--b-font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.b-nav a:hover {
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+.b-login {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 1.35rem;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: linear-gradient(180deg, #824e29 0%, #451d08 100%);
+  box-shadow: 0 6px 7px rgba(185, 121, 28, 0.35);
+}
+
+.b-login:hover {
+  filter: brightness(1.08);
+}
+
+.b-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--b-gold);
+  min-height: 640px;
+}
+
+.b-hero-shade {
+  position: absolute;
+  inset: 0 0 0 42%;
+  background: #100c08;
+  clip-path: polygon(16% 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.b-hero-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  gap: 1rem;
+  align-items: center;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 3rem;
+}
+
+.b-hero h1 {
+  margin: 0;
+  max-width: 11ch;
+  font-size: clamp(2.4rem, 4.6vw, 4.35rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--b-ink);
+}
+
+.b-hero-lead {
+  margin: 1.25rem 0 0;
+  max-width: 34rem;
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  line-height: 1.45;
+  color: var(--b-ink);
+}
+
+.b-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.75rem;
+  max-width: 540px;
+}
+
+.b-choice {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 108px;
+  padding: 0.85rem 1rem 0.85rem 0.85rem;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 210, 107, 0.35);
+  box-shadow: 0 14px 18px rgba(20, 13, 4, 0.18);
+}
+
+.b-choice-light {
+  background: rgba(255, 249, 241, 0.94);
+  color: #111;
+}
+
+.b-choice-dark {
+  background: linear-gradient(155deg, #26190a 0%, #120c05 100%);
+  color: var(--b-amber);
+}
+
+.b-choice img {
+  width: 72px;
+  height: 82px;
+}
+
+.b-choice strong {
+  display: block;
+  font-family: var(--b-font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.b-choice-light strong {
+  color: #111;
+}
+
+.b-choice span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.b-choice-light span {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.b-choice-dark span {
+  color: rgba(255, 253, 247, 0.62);
+}
+
+.b-arrow {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--b-gold);
+  color: #151008;
+  flex-shrink: 0;
+}
+
+.b-choice-dark .b-arrow {
+  background: var(--b-amber);
+}
+
+.b-phone {
+  width: min(100%, 560px);
+  margin-left: auto;
+  filter: drop-shadow(0 24px 30px rgba(0, 0, 0, 0.35));
+}
+
+.b-section {
+  background: var(--b-cream);
+  padding: 4.5rem 1.25rem 3.5rem;
+}
+
+.b-wrap {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.b-how-title {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.6rem, 3vw, 2.15rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.b-branches {
+  display: block;
+  width: min(720px, 86%);
+  height: 54px;
+  margin: 0.35rem auto 0.2rem;
+}
+
+.b-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.b-step {
+  position: relative;
+  text-align: center;
+  padding: 0 0.35rem;
+}
+
+.b-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 72px;
+  left: calc(50% + 78px);
+  width: calc(100% - 156px);
+  border-top: 2px dashed #e0a020;
+}
+
+.b-hex {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  margin: 0 auto 0.9rem;
+  display: grid;
+  place-items: center;
+}
+
+.b-hex svg {
+  position: absolute;
+  inset: 0;
+}
+
+.b-hex img {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  object-fit: contain;
+}
+
+.b-step h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.b-step p {
+  margin: 0.4rem auto 0;
+  max-width: 16rem;
+  color: var(--b-muted);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.b-benefits {
+  position: relative;
+  padding-top: 1rem;
+}
+
+.b-benefits-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1.25rem 1.5rem;
+  align-items: start;
+}
+
+.b-kicker {
+  margin: 0;
+  color: var(--b-amber);
+  font-family: var(--b-font-display);
+  font-size: 0.95rem;
+}
+
+.b-benefits h3 {
+  margin: 0.45rem 0 0;
+  max-width: 16ch;
+  font-size: clamp(1.45rem, 2.2vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.b-benefits .b-intro {
+  margin: 0.7rem 0 1.15rem;
+  max-width: 34rem;
+  color: var(--b-ink-soft);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.b-point {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.85rem;
+}
+
+.b-point-hex {
+  width: 72px;
+  height: 72px;
+  margin: 0;
+}
+
+.b-point-hex img {
+  width: 40px;
+  height: 40px;
+}
+
+.b-point strong {
+  display: block;
+  font-family: var(--b-font-display);
+  font-size: 1rem;
+}
+
+.b-point span {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--b-muted);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.b-center-mark {
+  width: 148px;
+  margin-top: 4.5rem;
+  align-self: center;
+}
+
+.b-client {
+  position: relative;
+  padding-right: 0;
+}
+
+.b-cup {
+  display: block;
+  width: min(220px, 46%);
+  margin: 1rem 0 0 auto;
+  filter: drop-shadow(0 16px 18px rgba(20, 13, 4, 0.18));
+}
+
+.b-hive {
+  padding: 4.5rem 1.25rem 4rem;
+  background:
+    radial-gradient(circle at 18% 70%, rgba(244, 197, 66, 0.18), transparent 28%),
+    radial-gradient(circle at 82% 30%, rgba(244, 197, 66, 0.16), transparent 26%),
+    var(--b-cream);
+}
+
+.b-hive h2 {
+  margin: 0 auto;
+  max-width: 18ch;
+  text-align: center;
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.b-hive .b-sub {
+  margin: 0.85rem auto 0;
+  max-width: 38rem;
+  text-align: center;
+  color: var(--b-ink-soft);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.b-hive-map {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 2.5rem;
+  min-height: 340px;
+}
+
+.b-cluster {
+  position: relative;
+  height: 280px;
+}
+
+.b-node {
+  position: absolute;
+  display: grid;
+  place-items: center;
+}
+
+.b-node img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.b-node-user {
+  width: 52px;
+  height: 52px;
+}
+
+.b-node-store {
+  width: 108px;
+  height: 108px;
+}
+
+.b-logo-stack {
+  width: min(210px, 28vw);
+  position: relative;
+  z-index: 1;
+}
+
+.b-arcs {
+  position: absolute;
+  inset: 8% 6%;
+  width: 88%;
+  height: 84%;
+  pointer-events: none;
+}
+
+.b-cta {
+  position: relative;
+  overflow: hidden;
+  background: #1a1208;
+  color: #fff;
+  padding: 4.5rem 1.5rem;
+}
+
+.b-cta-blob {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(244, 197, 66, 0.16), transparent 68%);
+  pointer-events: none;
+}
+
+.b-cta-blob-l {
+  width: 420px;
+  height: 420px;
+  left: -140px;
+  bottom: -160px;
+}
+
+.b-cta-blob-r {
+  width: 480px;
+  height: 480px;
+  right: -120px;
+  top: -180px;
+}
+
+.b-cta-inner {
+  position: relative;
+  z-index: 1;
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.b-cta h2 {
+  margin: 0;
+  max-width: 12ch;
+  font-size: clamp(2.4rem, 5vw, 4.4rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.b-cta p {
+  margin: 1rem 0 0;
+  max-width: 28rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.b-cta-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 240px;
+  min-height: 84px;
+  padding: 0 2rem;
+  border-radius: 999px;
+  color: var(--b-ink-soft);
+  font-family: var(--b-font-display);
+  font-weight: 800;
+  font-size: 1.35rem;
+  background: linear-gradient(180deg, #ffd26b 0%, #f3a93b 100%);
+  box-shadow: 0 8px 10px rgba(185, 121, 28, 0.35);
+}
+
+.b-cta-btn:hover {
+  filter: brightness(1.05);
+}
+
+.b-footer {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr auto 1.2fr;
+  gap: 1.5rem;
+  align-items: center;
+  background: var(--b-cream-2);
+  padding: 1.75rem 1.5rem 2rem;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.b-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.b-footer-brand img {
+  width: 48px;
+  height: 54px;
+}
+
+.b-footer-brand strong {
+  display: block;
+  font-family: var(--b-font-display);
+  font-size: 1.45rem;
+  letter-spacing: 0.04em;
+}
+
+.b-footer-brand span {
+  display: block;
+  margin-top: 0.1rem;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 0.82rem;
+}
+
+.b-footer-contact {
+  color: #111;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.b-footer-contact small {
+  display: block;
+  font-size: 1rem;
+}
+
+.b-socials {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.b-socials a {
+  width: 46px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  color: #2d210d;
+  background: var(--b-gold);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+.b-socials a:hover {
+  filter: brightness(1.05);
+}
+
+.b-legal {
+  margin: 0;
+  text-align: right;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 980px) {
+  .b-header {
+    flex-wrap: wrap;
+  }
+
+  .b-nav {
+    order: 3;
+    width: 100%;
+    margin: 0;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .b-login {
+    margin-left: auto;
+  }
+
+  .b-hero-shade {
+    inset: 58% 0 0 0;
+    clip-path: polygon(0 10%, 100% 0, 100% 100%, 0 100%);
+  }
+
+  .b-hero-grid {
+    grid-template-columns: 1fr;
+    padding-top: 2.4rem;
+  }
+
+  .b-hero h1 {
+    max-width: 16ch;
+  }
+
+  .b-phone {
+    margin: 0.5rem auto 0;
+  }
+
+  .b-steps {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 0.5rem;
+  }
+
+  .b-step:nth-child(odd)::after,
+  .b-step:nth-child(2)::after {
+    display: none;
+  }
+
+  .b-benefits-grid,
+  .b-hive-map,
+  .b-cta-inner,
+  .b-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .b-center-mark {
+    margin: 0.25rem auto 0.5rem;
+  }
+
+  .b-client {
+    order: 2;
+  }
+
+  .b-hive-map {
+    min-height: 0;
+  }
+
+  .b-cluster {
+    height: 220px;
+  }
+
+  .b-logo-stack {
+    width: 160px;
+    margin: 0 auto;
+  }
+
+  .b-cta-inner {
+    display: grid;
+  }
+
+  .b-legal {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .b-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .b-choice {
+    border-radius: 22px;
+  }
+
+  .b-choice strong {
+    font-size: 1.15rem;
+  }
+}

@@ -5,6 +5,11 @@ import type {
   WalletRegisterRequest,
 } from "src/types/auth";
 
+export const pollarSessionSchema = z.object({
+  token: z.string().trim().min(1, "token requerido").max(8192),
+  from: z.string().trim().max(500).optional(),
+});
+
 export const passwordLoginSchema = z.object({
   username: z.string().trim().min(1, "username requerido").max(200),
   password: z.string().min(1, "password requerido").max(500),
@@ -63,8 +68,3 @@ export const profileUpdateSchema = z.object({
   maternal_surname: optionalNamePart,
   birthDate: isoDateOnly,
 });
-
-export type PasswordLoginInput = z.infer<typeof passwordLoginSchema>;
-export type WalletLoginInput = z.infer<typeof walletLoginSchema>;
-export type WalletRegisterInput = z.infer<typeof walletRegisterSchema>;
-export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;

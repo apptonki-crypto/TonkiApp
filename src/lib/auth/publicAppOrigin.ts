@@ -3,7 +3,25 @@
  * Prefer APP_URL, then forwarded headers, then Host — never trust bind addresses.
  */
 
+import { NextResponse } from "next/server";
+
 const FALLBACK_PUBLIC_ORIGIN = "https://tonki.io";
+
+/**
+ * Same-origin 307 with a relative Location. NextResponse.redirect() requires
+ * an absolute URL and Hostinger Node often resolves that as https://0.0.0.0:3000
+ * (ERR_SSL_PROTOCOL_ERROR). Relative Location keeps the browser on tonki.io.
+ */
+export function redirectToAppPath(pathWithSearch: string): NextResponse {
+  const path =
+    pathWithSearch.startsWith("/") && !pathWithSearch.startsWith("//")
+      ? pathWithSearch
+      : "/login";
+  return new NextResponse(null, {
+    status: 307,
+    headers: { Location: path },
+  });
+}
 
 export function getPublicAppOrigin(req: Request): string {
   const configured =
@@ -13,6 +31,17 @@ export function getPublicAppOrigin(req: Request): string {
   const host = xfHost || hostHeader;
   const xfProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   const fromUrl = new URL(req.url);
+
+  // QR / share links while `npm run dev`: match the browser origin, not production APP_URL.
+  if (
+    process.env.NODE_ENV === "development" &&
+    host &&
+    !isUnusableHost(host) &&
+    isLoopbackHost(host)
+  ) {
+    const proto = xfProto || "http";
+    return `${proto}://${host}`;
+  }
 
   if (configured) {
     try {

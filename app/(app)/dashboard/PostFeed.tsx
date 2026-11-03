@@ -30,19 +30,17 @@ import {
 } from "src/lib/posts/proceduralFeed";
 
 import { FallbackImage } from "src/components/FallbackImage";
+import {
+  UserProfileModal,
+  type ProfilePreview,
+} from "src/components/UserProfileModal";
 
+import { PostDynamicsPanel } from "src/components/posts/PostDynamicsPanel";
+import type { NormalizedDynamic } from "src/lib/posts/dynamicClient";
 import { ImageAttachmentGrid } from "./ImageAttachmentGrid";
 import { FeedComposer } from "./FeedComposer";
 import { PostOverlayModal } from "./PostOverlayModal";
 import { PostShareButton } from "./PostShareButton";
-
-export type {
-  FeedPost,
-  FeedPostAttachment,
-  FeedPostAuthor,
-  PostsListErrorBody,
-} from "src/lib/posts/feedTypes";
-export { isPostsSuccess } from "src/lib/posts/feedTypes";
 
 const PAGE_SIZE = 20;
 
@@ -136,6 +134,9 @@ function PostViewCount({
 export function PostFeed() {
   const [feedItems, setFeedItems] = useState<FeedPostItem[]>([]);
   const [activePost, setActivePost] = useState<FeedPost | null>(null);
+  const [profilePreview, setProfilePreview] = useState<ProfilePreview | null>(
+    null
+  );
   const [apiNextCursor, setApiNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const proceduralBatchRef = useRef(0);
@@ -268,6 +269,23 @@ export function PostFeed() {
     setPostQuery(null);
   }, [setPostQuery]);
 
+  const updatePostDynamics = useCallback(
+    (postId: string, dynamics: NormalizedDynamic[]) => {
+      setActivePost((current) =>
+        current?.post_id === postId ? { ...current, dynamics } : current
+      );
+      setFeedItems((prev) =>
+        prev.map((item) =>
+          item.post_id === postId ? { ...item, dynamics, feedKey: item.feedKey } : item
+        )
+      );
+      canonicalPostsRef.current = canonicalPostsRef.current.map((item) =>
+        item.post_id === postId ? { ...item, dynamics } : item
+      );
+    },
+    []
+  );
+
   useEffect(() => {
     const requestedPostId = searchParams.get("post");
     if (!requestedPostId) {
@@ -384,18 +402,45 @@ export function PostFeed() {
             aria-label={`Abrir publicación: ${post.title}`}
           >
             <div className="flex gap-4">
-              <div className="mt-1 h-11 w-11 shrink-0 overflow-hidden rounded-full border border-tonki-border bg-tonki-canvas">
-                <FallbackImage
-                  src="/logo.png"
-                  alt=""
-                  className="h-full w-full object-cover opacity-90"
-                />
-              </div>
+              <button
+                type="button"
+                aria-label={`Ver perfil de ${post.author.name}`}
+                onClick={() =>
+                  setProfilePreview({
+                    userId: post.author.user_id,
+                    name: post.author.name,
+                    avatarUrl: post.author.avatar_url,
+                  })
+                }
+                className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-tonki-border bg-tonki-canvas p-0.5"
+              >
+                {post.author.avatar_url ? (
+                  <FallbackImage
+                    src={post.author.avatar_url}
+                    alt=""
+                    className="max-h-full max-w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-sm font-bold text-tonki-text-muted">
+                    {post.author.name.trim().charAt(0).toUpperCase() || "?"}
+                  </span>
+                )}
+              </button>
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                  <span className="font-semibold text-tonki-text">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setProfilePreview({
+                        userId: post.author.user_id,
+                        name: post.author.name,
+                        avatarUrl: post.author.avatar_url,
+                      })
+                    }
+                    className="font-semibold text-tonki-accent hover:underline"
+                  >
                     {post.author.name}
-                  </span>
+                  </button>
                   <span className="text-tonki-text-faint" aria-hidden>
                     ·
                   </span>
@@ -424,6 +469,11 @@ export function PostFeed() {
                     {snippet}
                   </p>
                 )}
+                <PostDynamicsPanel
+                  postId={post.post_id}
+                  dynamics={post.dynamics}
+                  variant="compact"
+                />
                 {imgs.length > 0 && (
                   <div className="mt-4 max-w-xl">
                     <ImageAttachmentGrid
@@ -500,7 +550,22 @@ export function PostFeed() {
           Cargando…
         </p>
       )}
-      <PostOverlayModal post={activePost} onClose={closePost} />
+      <PostOverlayModal
+        post={activePost}
+        onClose={closePost}
+        onDynamicsChange={updatePostDynamics}
+        onOpenAuthor={(post) =>
+          setProfilePreview({
+            userId: post.author.user_id,
+            name: post.author.name,
+            avatarUrl: post.author.avatar_url,
+          })
+        }
+      />
+      <UserProfileModal
+        preview={profilePreview}
+        onClose={() => setProfilePreview(null)}
+      />
     </div>
   );
 }

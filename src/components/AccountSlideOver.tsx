@@ -14,7 +14,9 @@ import {
   type ReactNode,
 } from "react";
 
+import { usePollarLogout } from "src/components/PollarAppProvider";
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import { clearTonkiSession } from "src/lib/auth/clearTonkiSession";
 import type { AuthMePayload } from "src/types/auth";
 
 type ApiEnvelope =
@@ -52,6 +54,7 @@ type AccountSlideOverGroupProps = {
 
 export function AccountSlideOverGroup({ children }: AccountSlideOverGroupProps) {
   const router = useRouter();
+  const logoutPollar = usePollarLogout();
   const titleId = useId();
   const panelId = useId();
   const [open, setOpen] = useState(false);
@@ -106,16 +109,14 @@ export function AccountSlideOverGroup({ children }: AccountSlideOverGroupProps) 
   const handleLogout = useCallback(async () => {
     setLogoutBusy(true);
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      logoutPollar();
+      await clearTonkiSession();
       router.replace("/login");
       router.refresh();
     } catch {
       setLogoutBusy(false);
     }
-  }, [router]);
+  }, [logoutPollar, router]);
 
   const display =
     payload?.user != null
@@ -223,13 +224,22 @@ export function AccountSlideOverGroup({ children }: AccountSlideOverGroupProps) 
                     </div>
 
                     {payload.role === "admin" && (
-                      <Link
-                        href="/admin/dashboard"
-                        onClick={() => setOpen(false)}
-                        className="block w-full rounded-xl border border-tonki-border px-4 py-3 text-center text-base font-semibold text-tonki-accent transition-colors hover:bg-tonki-elevated"
-                      >
-                        Panel admin · contenido
-                      </Link>
+                      <>
+                        <Link
+                          href="/admin/dashboard"
+                          onClick={() => setOpen(false)}
+                          className="block w-full rounded-xl border border-tonki-border px-4 py-3 text-center text-base font-semibold text-tonki-accent transition-colors hover:bg-tonki-elevated"
+                        >
+                          Panel admin · contenido
+                        </Link>
+                        <Link
+                          href="/admin/crm"
+                          onClick={() => setOpen(false)}
+                          className="block w-full rounded-xl border border-tonki-border px-4 py-3 text-center text-base font-semibold text-tonki-accent transition-colors hover:bg-tonki-elevated"
+                        >
+                          CRM · ventas
+                        </Link>
+                      </>
                     )}
 
                     <Link

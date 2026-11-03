@@ -20,12 +20,6 @@ export interface AuthResponse {
   redirectTo: string;
 }
 
-/** Success body for `GET /api/auth/me` (wrapped with `success: true` by the API helper). */
-export interface AuthMeResponse {
-  user: PublicUser;
-  role: UserRole;
-}
-
 export interface LoginRequest {
   username: string;
   password: string;
@@ -47,14 +41,6 @@ export interface WalletRegisterRequest {
   email: string;
   birthDate: string;
   name?: string;
-}
-
-export interface ProfileUpdateRequest {
-  email: string;
-  first_name: string;
-  paternal_surname?: string;
-  maternal_surname?: string;
-  birthDate: string;
 }
 
 /** Wrapped by `apiSuccess`: `{ success: true, user, role }` */

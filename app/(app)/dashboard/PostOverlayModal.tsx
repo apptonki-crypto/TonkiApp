@@ -10,6 +10,8 @@ import {
   isPostAttachmentVideoMime,
 } from "src/lib/posts/attachmentMime";
 import type { FeedPost } from "src/lib/posts/feedTypes";
+import { PostDynamicsPanel } from "src/components/posts/PostDynamicsPanel";
+import type { NormalizedDynamic } from "src/lib/posts/dynamicClient";
 
 import { ImageAttachmentGrid } from "./ImageAttachmentGrid";
 
@@ -24,9 +26,16 @@ function nonImageNonVideoAttachments(post: FeedPost) {
 type PostOverlayModalProps = {
   post: FeedPost | null;
   onClose: () => void;
+  onOpenAuthor: (post: FeedPost) => void;
+  onDynamicsChange?: (postId: string, dynamics: NormalizedDynamic[]) => void;
 };
 
-export function PostOverlayModal({ post, onClose }: PostOverlayModalProps) {
+export function PostOverlayModal({
+  post,
+  onClose,
+  onOpenAuthor,
+  onDynamicsChange,
+}: PostOverlayModalProps) {
   useEffect(() => {
     if (!post) return;
     const previous = document.body.style.overflow;
@@ -80,9 +89,13 @@ export function PostOverlayModal({ post, onClose }: PostOverlayModalProps) {
             >
               <header className="flex items-start justify-between gap-3 border-b border-tonki-border px-4 py-3 sm:px-5">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-tonki-text">
+                  <button
+                    type="button"
+                    onClick={() => onOpenAuthor(post)}
+                    className="truncate text-sm font-semibold text-tonki-accent hover:underline"
+                  >
                     {post.author.name}
-                  </p>
+                  </button>
                   <time
                     className="text-xs text-tonki-text-muted"
                     dateTime={post.updated_at}
@@ -109,6 +122,13 @@ export function PostOverlayModal({ post, onClose }: PostOverlayModalProps) {
                     {post.body}
                   </p>
                 ) : null}
+
+                <PostDynamicsPanel
+                  postId={post.post_id}
+                  dynamics={post.dynamics}
+                  variant="actions"
+                  onChange={(dynamics) => onDynamicsChange?.(post.post_id, dynamics)}
+                />
 
                 {imageAttachments.length > 0 ? (
                   <div className="mt-4">

@@ -1,4 +1,4 @@
-import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import { fetchSessionJson } from "src/lib/api/fetchSessionJson";
 
 export type AdminMetricsPost = {
   post_id: string;
@@ -40,36 +40,18 @@ function isAdminMetricsSuccess(data: unknown): data is AdminMetricsSuccessBody {
 export async function fetchAdminMetrics(opts: {
   networkErrorMessage: string;
 }): Promise<FetchAdminMetricsResult> {
-  try {
-    const res = await fetch("/api/admin/metrics", {
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    if (res.status === 401) {
-      return { ok: false, error: "No autenticado", unauthorized: true };
+  const result = await fetchSessionJson<AdminMetricsPayload>(
+    "/api/admin/metrics",
+    {
+      networkErrorMessage: opts.networkErrorMessage,
+      parse: (body) => {
+        if (!isAdminMetricsSuccess(body)) return null;
+        const { totals, top_by_views, top_by_shares } = body;
+        return { totals, top_by_views, top_by_shares };
+      },
     }
+  );
 
-    const data = await readJsonSafely(res);
-    if (data === null) {
-      return { ok: false, error: "Respuesta inválida del servidor" };
-    }
-
-    if (!res.ok) {
-      const err = data as { error?: string };
-      return { ok: false, error: err.error || `Error ${res.status}` };
-    }
-
-    if (!isAdminMetricsSuccess(data)) {
-      return { ok: false, error: "Formato de datos inesperado" };
-    }
-
-    const { totals, top_by_views, top_by_shares } = data;
-    return {
-      ok: true,
-      metrics: { totals, top_by_views, top_by_shares },
-    };
-  } catch {
-    return { ok: false, error: opts.networkErrorMessage };
-  }
+  if (!result.ok) return result;
+  return { ok: true, metrics: result.data };
 }

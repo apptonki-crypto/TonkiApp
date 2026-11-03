@@ -14,9 +14,7 @@ export const postsListQuerySchema = z.object({
     .transform((v) => v === "1" || v === "true"),
 });
 
-export type PostsListQuery = z.infer<typeof postsListQuerySchema>;
-
-export const postCursorPayloadSchema = z.object({
+const postCursorPayloadSchema = z.object({
   created_at: z.string(),
   post_id: z.string().uuid(),
 });
@@ -55,12 +53,5 @@ export const createPostFormSchema = z.object({
   body: z.string().max(POST_BODY_MAX_CHARS).optional(),
 });
 
-export type CreatePostFormInput = z.infer<typeof createPostFormSchema>;
-
-/** Edición multipart: mismo cuerpo que creación más lista opcional de adjuntos eliminados. */
-export const updatePostFormFieldsSchema = z.object({
-  title: z.string().trim().min(1).max(POST_TITLE_MAX_CHARS),
-  body: z.string().max(POST_BODY_MAX_CHARS).optional(),
-});
-
-export type UpdatePostFormFields = z.infer<typeof updatePostFormFieldsSchema>;
+/** Edición multipart: mismos campos de título/cuerpo que la creación. */
+export const updatePostFormFieldsSchema = createPostFormSchema;

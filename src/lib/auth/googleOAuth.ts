@@ -8,6 +8,7 @@ import {
   GOOGLE_TOKEN_URL,
   type GoogleOAuthConfig,
 } from "src/lib/auth/googleOAuthConfig";
+import { sanitizeAuthReturnPath } from "src/lib/auth/sanitizeReturnPath";
 import type { UserRole } from "src/types/auth";
 
 const GOOGLE_JWKS = createRemoteJWKSet(new URL(GOOGLE_JWKS_URL));
@@ -139,49 +140,13 @@ export async function verifyGoogleIdToken(
   };
 }
 
-/** Safe post-auth redirect for OAuth callback (server-side). */
-export function sanitizeOAuthReturnPath(
-  raw: string | null | undefined,
-  role: UserRole
-): string | null {
-  if (!raw?.trim()) return null;
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(raw.trim());
-  } catch {
-    return null;
-  }
-  const pathOnly = decoded.split(/[?#]/, 1)[0] ?? "";
-  if (
-    pathOnly.startsWith("//") ||
-    !pathOnly.startsWith("/") ||
-    pathOnly === "/login"
-  ) {
-    return null;
-  }
-  if (/[\x00-\x1f]/.test(pathOnly)) return null;
-  if (!/^\/[-\w./]*$/.test(pathOnly)) return null;
-
-  if (pathOnly.startsWith("/admin")) {
-    return role === "admin" ? pathOnly : null;
-  }
-  if (
-    pathOnly.startsWith("/dashboard") ||
-    pathOnly.startsWith("/account") ||
-    pathOnly.startsWith("/onboarding")
-  ) {
-    return pathOnly;
-  }
-  return null;
-}
-
 export function resolvePostGoogleAuthRedirect(
   role: UserRole,
   hasSmartWallet: boolean,
   returnTo: string | null
 ): string {
   if (!hasSmartWallet) return "/onboarding/wallet";
-  const safeReturn = sanitizeOAuthReturnPath(returnTo, role);
+  const safeReturn = sanitizeAuthReturnPath(returnTo, role);
   if (safeReturn) return safeReturn;
   return role === "admin" ? "/admin/dashboard" : "/dashboard";
 }
