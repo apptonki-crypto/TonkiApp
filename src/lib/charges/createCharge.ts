@@ -18,11 +18,6 @@ import {
   tonkisFromAmountCents,
 } from "src/lib/charges/tonkis";
 
-export type ChargeLineInput = {
-  product_id: string;
-  quantity: number;
-};
-
 export type CreateChargeResult =
   | { ok: true; charge: CreatedCharge }
   | { ok: false; status: number; error: string };
@@ -38,10 +33,13 @@ function isUniqueConflict(err: unknown): boolean {
 }
 
 export async function createConsumptionCharge(input: {
+  /** Dueño del negocio: define establecimiento, catálogo y wallet destino. */
   adminId: string;
   amountRaw: string | null;
   origin: string;
   items?: unknown;
+  /** Mesero que genera el QR en nombre del negocio, si aplica. */
+  createdByStaffId?: string;
 }): Promise<CreateChargeResult> {
   const establishment = await prisma.establishment.findFirst({
     where: { admin_id: input.adminId },
@@ -166,6 +164,7 @@ export async function createConsumptionCharge(input: {
           token,
           expires_at: expiresAt,
           status: CHARGE_STATUS_PENDING,
+          created_by_staff_id: input.createdByStaffId ?? null,
           line_items:
             lineItemsData.length > 0
               ? {

@@ -144,6 +144,15 @@ export function formatStoredHours(raw: string | null | undefined): string | null
   return formatWeekHours(parseWeekHours(trimmed));
 }
 
+/** True si hay texto libre o al menos un día abierto en el horario guardado. */
+export function hasOpenHours(raw: string | null | undefined): boolean {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed) return false;
+  if (!trimmed.startsWith("{")) return true;
+  const week = parseWeekHours(trimmed);
+  return WEEKDAY_KEYS.some((key) => !week[key].closed);
+}
+
 export function weekdayLabel(key: WeekdayKey): string {
   return DAY_LABEL[key];
 }

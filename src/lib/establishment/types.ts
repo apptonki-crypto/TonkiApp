@@ -24,6 +24,13 @@ export type EstablishmentProfile = {
   images: EstablishmentImageItem[];
 };
 
+/** Lugar donde el usuario acreditó un consumo o escaneó el QR de presentación. `visits` = días distintos. */
+export type EstablishmentVisit = {
+  establishment_id: string;
+  visits: number;
+  last_visit_at: string;
+};
+
 export type PublicEstablishmentCard = {
   establishment_id: string;
   name: string;

@@ -65,6 +65,7 @@ function mapSale(row: {
   created_at: Date;
   updated_at: Date;
   claimed_by: { name: string } | null;
+  created_by_staff?: { name: string } | null;
   line_items: {
     line_item_id: string;
     product_id: string | null;
@@ -81,6 +82,7 @@ function mapSale(row: {
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
     claimed_by_name: row.claimed_by?.name ?? null,
+    created_by_staff_name: row.created_by_staff?.name ?? null,
     line_items: row.line_items.map(mapLineItem),
   };
 }
@@ -139,6 +141,7 @@ async function loadFilteredSales(
         created_at: true,
         updated_at: true,
         claimed_by: { select: { name: true } },
+        created_by_staff: { select: { name: true } },
         line_items: {
           orderBy: { created_at: "asc" },
           select: {

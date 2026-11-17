@@ -1,8 +1,11 @@
+import { NextResponse } from "next/server";
+
 import { logAndRespondAuthInfrastructureError } from "src/lib/api/authRouteCatch";
+import { parseRequestJson } from "src/lib/api/readJsonSafely";
 import { apiError, apiSuccess } from "src/lib/api/response";
 import { getSessionUserId } from "src/lib/auth/session";
-import { creditChargeForUser } from "src/lib/charges/creditCharge";
 import { loadChargePreview } from "src/lib/charges/preview";
+import { settleChargePayment } from "src/lib/charges/settlement/settle";
 
 type RouteContext = {
   params: Promise<{ token: string }>;
@@ -29,13 +32,30 @@ export async function GET(_req: Request, context: RouteContext) {
   }
 }
 
-export async function POST(_req: Request, context: RouteContext) {
+/**
+ * Settles the charge: verifies the customer's Stellar transfer, then credits
+ * Tonkis once. Returns 202 with `retry` while the network has not shown it yet.
+ */
+export async function POST(req: Request, context: RouteContext) {
   try {
     const gate = await requireUserId();
     if (!gate.ok) return gate.response;
     const { token } = await context.params;
-    const credited = await creditChargeForUser(token, gate.userId);
-    if (!credited.ok) return apiError(credited.error, credited.status);
+    const json = await parseRequestJson(req);
+    const body =
+      json && typeof json === "object" ? (json as { tx_hash?: unknown }) : {};
+    const txHash = typeof body.tx_hash === "string" ? body.tx_hash : null;
+
+    const credited = await settleChargePayment(token, gate.userId, txHash);
+    if (!credited.ok) {
+      if (credited.retry) {
+        return NextResponse.json(
+          { success: false, retry: true, error: credited.error },
+          { status: 202 }
+        );
+      }
+      return apiError(credited.error, credited.status);
+    }
     return apiSuccess({
       message: `Se acreditaron ${credited.points.toLocaleString("es-MX")} Tonkis.`,
       points: credited.points,

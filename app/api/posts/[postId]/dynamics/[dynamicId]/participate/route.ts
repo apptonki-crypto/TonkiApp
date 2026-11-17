@@ -4,12 +4,16 @@ import prisma from "src/lib/db";
 import { apiError, apiSuccess } from "src/lib/api/response";
 import { requireActiveClientSession } from "src/lib/api/requireActiveClient";
 import { participateInDynamic } from "src/lib/posts/dynamics";
+import { scheduleChainWork } from "src/lib/posts/chain/schedule";
 import { parseParticipateBody } from "src/lib/posts/dynamicRequests";
 
 const paramsSchema = z.object({
   postId: z.string().uuid(),
   dynamicId: z.string().uuid(),
 });
+
+/** A confirmed Stellar transaction can take several seconds. */
+export const maxDuration = 60;
 
 export async function POST(
   req: Request,
@@ -47,6 +51,8 @@ export async function POST(
       code: parsed.code,
     });
     if (!result.ok) return apiError(result.error, result.status);
+
+    scheduleChainWork();
 
     return apiSuccess({
       message:

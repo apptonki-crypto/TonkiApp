@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { establishmentUpsertSchema } from "./schemas";
+import {
+  establishmentOnboardingSchema,
+  establishmentUpsertSchema,
+} from "./schemas";
 
 describe("establishmentUpsertSchema", () => {
   it("defaults cashback to 5 and clears blank address", () => {
@@ -63,6 +66,51 @@ describe("establishmentUpsertSchema", () => {
     expect(parsed.cashback_percent).toBe(12);
     expect(parsed.category).toBeNull();
     expect(parsed.location_x).toBeNull();
+  });
+
+  describe("establishmentOnboardingSchema", () => {
+    const openWeek = JSON.stringify({
+      mon: { closed: false, open: "09:00", close: "18:00" },
+    });
+    const complete = {
+      name: "El Campestre",
+      category: "Cafetería",
+      description: "Café de especialidad",
+      address: "Calle 1 #2",
+      phone: "5555555555",
+      hours: openWeek,
+      cashback_percent: "5",
+    };
+
+    it("accepts a complete profile without logo, website or location", () => {
+      const parsed = establishmentOnboardingSchema.safeParse(complete);
+      expect(parsed.success).toBe(true);
+    });
+
+    it.each(["category", "description", "address", "phone"] as const)(
+      "rejects a profile without %s",
+      (field) => {
+        const parsed = establishmentOnboardingSchema.safeParse({
+          ...complete,
+          [field]: "  ",
+        });
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+          expect(parsed.error.issues[0]?.path).toEqual([field]);
+        }
+      }
+    );
+
+    it("rejects a schedule with every day closed or missing", () => {
+      const allClosed = JSON.stringify({ mon: { closed: true } });
+      expect(
+        establishmentOnboardingSchema.safeParse({ ...complete, hours: allClosed })
+          .success
+      ).toBe(false);
+      expect(
+        establishmentOnboardingSchema.safeParse({ ...complete, hours: "" }).success
+      ).toBe(false);
+    });
   });
 
   it("rejects percents outside 1–100", () => {

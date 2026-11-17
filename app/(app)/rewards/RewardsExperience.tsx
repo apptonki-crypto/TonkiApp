@@ -115,21 +115,34 @@ export function RewardsExperience() {
 
   if (loading) {
     return (
-      <main className="mx-auto w-full px-4 py-14 text-center text-sm text-tonki-text-muted sm:px-6">
-        Cargando recompensas…
+      <main
+        className="mx-auto w-full max-w-2xl px-4 pb-8 pt-6 sm:px-6"
+        aria-busy="true"
+        aria-label="Cargando recompensas"
+      >
+        <div className="animate-pulse space-y-6">
+          <div className="h-24 rounded-3xl border border-tonki-border bg-tonki-surface-hover/50" />
+          <div className="h-52 rounded-3xl bg-tonki-surface-hover" />
+          <div className="h-56 rounded-3xl border border-tonki-border bg-tonki-surface-hover/50" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="h-64 rounded-3xl border border-tonki-border bg-tonki-surface-hover/50" />
+            <div className="h-64 rounded-3xl border border-tonki-border bg-tonki-surface-hover/50" />
+          </div>
+        </div>
       </main>
     );
   }
 
   const greetingName = payload?.greeting_name?.trim() || "Usuario";
   const isAdmin = payload?.role === "admin";
+  const totalPoints = payload?.total_points ?? 0;
 
   return (
-    <main className="mx-auto w-full px-4 pb-8 pt-6 sm:px-6">
-      <Greeting name={greetingName} />
+    <main className="mx-auto w-full max-w-2xl px-4 pb-8 pt-6 sm:px-6">
+      <Greeting name={greetingName} isAdmin={isAdmin} />
 
       {!isAdmin ? (
-        <BalanceCard totalPoints={payload?.total_points ?? 0} />
+        <BalanceCard totalPoints={totalPoints} catalog={payload?.catalog ?? []} />
       ) : null}
 
       {isAdmin ? (
@@ -150,6 +163,7 @@ export function RewardsExperience() {
       <ExploreRewards
         catalog={payload?.catalog ?? []}
         isAdmin={isAdmin}
+        totalPoints={totalPoints}
         onAdd={() => {
           setEditing(null);
           setCreating(true);
@@ -183,40 +197,146 @@ export function RewardsExperience() {
   );
 }
 
-function Greeting({ name }: { name: string }) {
+function Greeting({ name, isAdmin }: { name: string; isAdmin: boolean }) {
   return (
-    <header>
-      <div className="flex flex-col">
-        <span className="text-sm font-medium text-tonki-text-muted">
-          Bienvenido de vuelta
-        </span>
-        <h1 className="text-2xl font-bold tracking-tight text-tonki-text">
-          ¡Hola, {name}!
-        </h1>
+    <header className="relative overflow-hidden rounded-3xl border border-tonki-border bg-gradient-to-br from-tonki-surface-hover/70 via-tonki-canvas to-tonki-canvas px-5 py-5 sm:px-6">
+      <div
+        aria-hidden
+        className="tonki-hex-light tonki-mask-fade pointer-events-none absolute inset-y-0 right-0 w-2/3"
+      />
+      <div className="relative flex items-center gap-3">
+        <span
+          aria-hidden
+          className="tonki-hex-cell h-9 w-8 shrink-0 bg-tonki-accent shadow-sm"
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-tonki-text-muted">
+            Bienvenido de vuelta
+          </p>
+          <h1 className="truncate text-2xl font-bold tracking-tight text-tonki-text">
+            ¡Hola, {name}!
+          </h1>
+        </div>
       </div>
+      <p className="relative mt-3 text-sm text-tonki-text-secondary">
+        {isAdmin
+          ? "Gestiona las recompensas de tu negocio y conoce a tus clientes más fieles."
+          : "Junta Tonkis en tus negocios favoritos y canjéalos por recompensas."}
+      </p>
     </header>
   );
 }
 
-function BalanceCard({ totalPoints }: { totalPoints: number }) {
+function TonkiCoin({ className = "h-16 w-14" }: { className?: string }) {
   return (
-    <section className="mt-8 overflow-hidden rounded-2xl bg-tonki-accent p-5 text-tonki-accent-fg">
-      <div className="flex items-center justify-between">
+    <span
+      className={`tonki-hex-cell flex shrink-0 items-center justify-center bg-gradient-to-br from-tonki-accent to-tonki-cta p-[3px] ${className}`}
+    >
+      <span className="tonki-hex-cell flex h-full w-full items-center justify-center bg-tonki-accent">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/Logos-Tonki-SVG/Isotipo caf-amarillo.svg"
+          alt=""
+          className="h-3/5 w-3/5 object-contain"
+        />
+      </span>
+    </span>
+  );
+}
+
+function BalanceCard({
+  totalPoints,
+  catalog,
+}: {
+  totalPoints: number;
+  catalog: EstablishmentRewardCatalogItem[];
+}) {
+  const nextReward = catalog
+    .filter((r) => r.value_tonkis > totalPoints)
+    .sort((a, b) => a.value_tonkis - b.value_tonkis)[0];
+  const affordableCount = catalog.filter(
+    (r) => r.value_tonkis <= totalPoints
+  ).length;
+  const progress = nextReward
+    ? Math.min(100, (totalPoints / nextReward.value_tonkis) * 100)
+    : 100;
+
+  return (
+    <section className="tonki-feed-in relative mt-6 overflow-hidden rounded-3xl bg-tonki-chrome p-6 text-tonki-chrome-text shadow-[0_24px_48px_-28px_rgba(32,32,32,0.8)]">
+      <div
+        aria-hidden
+        className="tonki-hex-dark tonki-mask-fade pointer-events-none absolute inset-y-0 right-0 w-3/4"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-tonki-accent/20 blur-3xl"
+      />
+      <div className="relative flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wider text-tonki-accent-fg/70">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tonki-chrome-text-muted">
             Tus Tonkis
           </p>
-          <p className="mt-1 text-4xl font-bold tracking-tight">
+          <p className="mt-2 text-5xl font-bold tabular-nums tracking-tight text-tonki-accent">
             {formatPoints(totalPoints)}
           </p>
+          <p className="mt-1 text-sm text-tonki-chrome-text-secondary">
+            Puntos acumulados por tus consumos
+          </p>
         </div>
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-tonki-accent-fg/10 text-3xl">
-          🪙
-        </span>
+        <div className="relative">
+          <span
+            aria-hidden
+            className="tonki-pulse-ring tonki-hex-cell absolute -inset-2 bg-tonki-accent/30"
+          />
+          <TonkiCoin className="relative h-16 w-14" />
+        </div>
       </div>
-      <p className="mt-4 text-sm font-medium text-tonki-accent-fg/80">
-        Puntos acumulados por tus consumos.
-      </p>
+
+      <div className="relative mt-6 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+        {nextReward ? (
+          <>
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <p className="min-w-0 truncate text-tonki-chrome-text-secondary">
+                Próxima:{" "}
+                <span className="font-semibold text-tonki-chrome-text">
+                  {nextReward.title}
+                </span>
+              </p>
+              <p className="shrink-0 tabular-nums text-tonki-chrome-text-muted">
+                faltan{" "}
+                <span className="font-bold text-tonki-accent">
+                  {formatPoints(nextReward.value_tonkis - totalPoints)}
+                </span>
+              </p>
+            </div>
+            <div
+              className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress)}
+              aria-label={`Progreso hacia ${nextReward.title}`}
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-tonki-accent to-tonki-accent-hover transition-[width] duration-700"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            {affordableCount > 0 ? (
+              <p className="mt-2 text-xs text-tonki-chrome-text-muted">
+                Ya puedes canjear {affordableCount}{" "}
+                {affordableCount === 1 ? "recompensa" : "recompensas"}.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm text-tonki-chrome-text-secondary">
+            {catalog.length > 0
+              ? "¡Te alcanza para todas las recompensas disponibles!"
+              : "Pronto habrá recompensas para canjear tus Tonkis."}
+          </p>
+        )}
+      </div>
     </section>
   );
 }
@@ -241,14 +361,23 @@ function PodiumSection({
     <section className="mt-8">
       <SectionHeading title={title} />
       {ordered.length === 0 ? (
-        <p className="mt-4 rounded-2xl border border-tonki-border bg-tonki-surface px-4 py-8 text-center text-sm text-tonki-text-muted">
-          {emptyMessage}
-        </p>
+        <EmptyState message={emptyMessage} />
       ) : (
-        <div className="mt-4 flex items-end justify-center gap-3 rounded-2xl border border-tonki-border bg-tonki-surface p-5">
-          {ordered.map((entry) => (
-            <PodiumItem key={entry.id} entry={entry} linkPlaces={linkPlaces} />
-          ))}
+        <div className="relative mt-4 overflow-hidden rounded-3xl border border-tonki-border bg-white px-4 pt-8 shadow-[0_10px_30px_-22px_rgba(45,33,13,0.45)] sm:px-6">
+          <div
+            aria-hidden
+            className="tonki-hex-light tonki-hive-fade pointer-events-none absolute inset-0"
+          />
+          <ol className="relative flex items-end justify-center gap-2 sm:gap-3">
+            {ordered.map((entry, index) => (
+              <PodiumItem
+                key={entry.id}
+                entry={entry}
+                linkPlaces={linkPlaces}
+                delayMs={index * 90}
+              />
+            ))}
+          </ol>
         </div>
       )}
     </section>
@@ -257,29 +386,59 @@ function PodiumSection({
 
 const PODIUM_STYLE: Record<
   1 | 2 | 3,
-  { ring: string; size: string; lift: string; medal: string }
+  { frame: string; avatar: string; step: string; stepText: string }
 > = {
-  1: { ring: "ring-tonki-accent", size: "h-20 w-20", lift: "-mt-4", medal: "🥇" },
-  2: { ring: "ring-tonki-border-strong", size: "h-16 w-16", lift: "mt-2", medal: "🥈" },
-  3: { ring: "ring-tonki-border-strong", size: "h-16 w-16", lift: "mt-2", medal: "🥉" },
+  1: {
+    frame: "from-tonki-accent to-tonki-cta",
+    avatar: "h-20 w-[70px]",
+    step: "h-28 bg-gradient-to-b from-tonki-accent to-tonki-accent-hover",
+    stepText: "text-tonki-accent-fg",
+  },
+  2: {
+    frame: "from-tonki-border-strong to-tonki-text-muted",
+    avatar: "h-16 w-14",
+    step: "h-20 bg-gradient-to-b from-tonki-surface-hover to-tonki-border",
+    stepText: "text-tonki-text-muted",
+  },
+  3: {
+    frame: "from-tonki-border-strong to-tonki-cta/70",
+    avatar: "h-16 w-14",
+    step: "h-14 bg-gradient-to-b from-tonki-surface-hover/70 to-tonki-border/80",
+    stepText: "text-tonki-text-muted",
+  },
 };
 
 function PodiumItem({
   entry,
   linkPlaces,
+  delayMs,
 }: {
   entry: RewardsPodiumEntry;
   linkPlaces: boolean;
+  delayMs: number;
 }) {
   const style = PODIUM_STYLE[entry.rank];
   const initial = entry.name.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <div className={`flex w-1/3 flex-col items-center ${style.lift}`}>
-      <div className="relative">
-        <span
-          className={`flex ${style.size} items-center justify-center overflow-hidden rounded-full bg-tonki-elevated text-xl font-bold text-tonki-text ring-2 ${style.ring}`}
+    <li
+      className="tonki-feed-in flex w-1/3 max-w-40 flex-col items-center"
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
+      {entry.rank === 1 ? (
+        <svg
+          viewBox="0 0 24 24"
+          className="mb-1 h-6 w-6 text-tonki-accent drop-shadow-sm"
+          fill="currentColor"
+          aria-hidden
         >
+          <path d="M3 7.5 7.5 11 12 4l4.5 7L21 7.5 19 18H5L3 7.5Zm2 12h14v1.5H5V19.5Z" />
+        </svg>
+      ) : null}
+      <span
+        className={`tonki-hex-cell flex ${style.avatar} items-center justify-center bg-gradient-to-br ${style.frame} p-[3px]`}
+      >
+        <span className="tonki-hex-cell flex h-full w-full items-center justify-center overflow-hidden bg-tonki-canvas text-xl font-bold text-tonki-text">
           {entry.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -291,25 +450,38 @@ function PodiumItem({
             initial
           )}
         </span>
-        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-lg">
-          {style.medal}
-        </span>
-      </div>
+      </span>
       {linkPlaces ? (
         <Link
           href={`/negocios?lugar=${entry.id}`}
-          className="mt-3 max-w-full truncate text-sm font-semibold text-tonki-accent"
+          className="mt-2 max-w-full truncate text-sm font-bold text-tonki-text decoration-tonki-accent decoration-2 underline-offset-4 hover:underline"
         >
           {entry.name}
         </Link>
       ) : (
-        <p className="mt-3 max-w-full truncate text-sm font-semibold text-tonki-text">
+        <p className="mt-2 max-w-full truncate text-sm font-bold text-tonki-text">
           {entry.name}
         </p>
       )}
-      <p className="text-xs font-medium text-tonki-text-muted">
+      <p className="mt-0.5 text-xs font-semibold tabular-nums text-tonki-cta">
         {formatPoints(entry.points)} pts
       </p>
+      <div
+        className={`mt-3 flex w-full items-start justify-center rounded-t-2xl pt-2 ${style.step}`}
+      >
+        <span className={`text-2xl font-bold ${style.stepText}`}>
+          {entry.rank}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="mt-4 flex flex-col items-center gap-3 rounded-3xl border border-dashed border-tonki-border-strong bg-tonki-surface-hover/30 px-4 py-10 text-center">
+      <span aria-hidden className="tonki-hex-cell h-10 w-9 bg-tonki-border" />
+      <p className="max-w-xs text-sm text-tonki-text-muted">{message}</p>
     </div>
   );
 }
@@ -317,12 +489,14 @@ function PodiumItem({
 function ExploreRewards({
   catalog,
   isAdmin,
+  totalPoints,
   onAdd,
   onEdit,
   onDelete,
 }: {
   catalog: EstablishmentRewardCatalogItem[];
   isAdmin: boolean;
+  totalPoints: number;
   onAdd: () => void;
   onEdit: (reward: EstablishmentRewardCatalogItem) => void;
   onDelete: (reward: EstablishmentRewardCatalogItem) => void;
@@ -330,28 +504,41 @@ function ExploreRewards({
   return (
     <section className="mt-8">
       <div className="flex items-center justify-between gap-3">
-        <SectionHeading title="Explora recompensas" />
+        <SectionHeading
+          title="Explora recompensas"
+          count={catalog.length > 0 ? catalog.length : undefined}
+        />
         {isAdmin ? (
           <button
             type="button"
             onClick={onAdd}
-            className="shrink-0 rounded-xl bg-tonki-accent px-3 py-2 text-sm font-bold text-tonki-accent-fg transition-colors hover:bg-tonki-accent-hover"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-tonki-chrome px-4 py-2 text-sm font-bold text-tonki-accent shadow-sm transition-colors hover:bg-tonki-chrome-hover"
           >
-            Agregar recompensa
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              className="h-4 w-4"
+              aria-hidden
+            >
+              <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+            </svg>
+            Agregar
           </button>
         ) : null}
       </div>
       {catalog.length === 0 ? (
-        <p className="mt-4 rounded-2xl border border-tonki-border bg-tonki-surface px-4 py-8 text-center text-sm text-tonki-text-muted">
-          Aún no hay recompensas publicadas.
-        </p>
+        <EmptyState message="Aún no hay recompensas publicadas." />
       ) : (
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          {catalog.map((reward) => (
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
+          {catalog.map((reward, index) => (
             <RewardCard
               key={reward.id}
               reward={reward}
               isAdmin={isAdmin}
+              totalPoints={totalPoints}
+              delayMs={Math.min(index, 7) * 60}
               onEdit={() => onEdit(reward)}
               onDelete={() => onDelete(reward)}
             />
@@ -365,81 +552,101 @@ function ExploreRewards({
 function RewardCard({
   reward,
   isAdmin,
+  totalPoints,
+  delayMs,
   onEdit,
   onDelete,
 }: {
   reward: EstablishmentRewardCatalogItem;
   isAdmin: boolean;
+  totalPoints: number;
+  delayMs: number;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const imageSrc =
     reward.image_url?.trim() || "/Logos-Tonki-SVG/Isotipo caf-crema.svg";
   const isFallback = !reward.image_url?.trim();
+  const missing = Math.max(0, reward.value_tonkis - totalPoints);
+  const canClaim = missing === 0;
 
   return (
-    <article className="flex flex-col rounded-2xl border border-tonki-border bg-tonki-surface p-3 transition-colors hover:bg-tonki-surface-hover">
-      <div className="flex h-24 items-center justify-center overflow-hidden rounded-xl bg-tonki-elevated">
+    <article
+      className="tonki-feed-in group flex flex-col overflow-hidden rounded-3xl border border-tonki-border bg-white shadow-[0_10px_30px_-22px_rgba(45,33,13,0.45)] transition duration-200 hover:-translate-y-0.5 hover:border-tonki-border-strong hover:shadow-[0_18px_40px_-24px_rgba(45,33,13,0.55)]"
+      style={{ animationDelay: `${delayMs}ms` }}
+    >
+      <div
+        className={`relative flex aspect-[4/3] items-center justify-center overflow-hidden ${
+          isFallback ? "tonki-hex-light bg-tonki-surface-hover/60" : "bg-tonki-media-bg"
+        }`}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageSrc}
           alt={reward.title}
           className={
             isFallback
-              ? "h-16 w-16 object-contain opacity-35"
-              : "h-full w-full object-cover"
+              ? "h-14 w-14 object-contain opacity-40"
+              : "h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           }
         />
+        <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-tonki-chrome/90 py-1 pl-1 pr-2.5 text-sm font-bold tabular-nums text-tonki-accent shadow-md backdrop-blur-sm">
+          <TonkiCoin className="h-5 w-[18px]" />
+          {formatPoints(reward.value_tonkis)}
+        </span>
       </div>
-      <div className="mt-3 flex flex-1 flex-col">
-        <h3 className="text-sm font-bold leading-snug tracking-tight text-tonki-text">
-          {reward.title}
-        </h3>
+      <div className="flex flex-1 flex-col p-3 sm:p-4">
         <Link
           href={`/negocios?lugar=${reward.establishment_id}`}
-          className="mt-0.5 text-xs font-medium text-tonki-accent"
+          className="truncate text-[11px] font-semibold uppercase tracking-wider text-tonki-cta hover:underline"
         >
           {reward.establishment_name}
         </Link>
-        <p className="mt-1 line-clamp-2 text-xs text-tonki-text-secondary">
+        <h3 className="mt-1 text-[15px] font-bold leading-snug tracking-tight text-tonki-text">
+          {reward.title}
+        </h3>
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-tonki-text-secondary">
           {reward.short_description}
         </p>
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            <span className="text-base">🪙</span>
-            <span className="text-sm font-bold text-tonki-text">
-              {formatPoints(reward.value_tonkis)}
-            </span>
-          </div>
-          <span className="text-xs font-medium text-tonki-text-muted">
-            {formatMoney(reward.value_usd)}
-          </span>
+        <p className="mt-2 text-xs font-medium text-tonki-text-muted">
+          Valor aprox. {formatMoney(reward.value_usd)}
+        </p>
+        <div className="mt-auto pt-3">
+          {isAdmin ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onEdit}
+                className="rounded-full border border-tonki-border bg-tonki-canvas py-2 text-sm font-bold text-tonki-text transition-colors hover:border-tonki-accent hover:bg-tonki-accent/15"
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="rounded-full border border-red-200 bg-transparent py-2 text-sm font-bold text-tonki-danger transition-colors hover:bg-red-50"
+              >
+                Eliminar
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-tonki-surface-hover">
+                <div
+                  className="h-full rounded-full bg-tonki-accent"
+                  style={{
+                    width: `${Math.min(100, reward.value_tonkis > 0 ? (totalPoints / reward.value_tonkis) * 100 : 0)}%`,
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-center text-xs font-semibold tabular-nums text-tonki-text-muted">
+                {canClaim
+                  ? "Ya tienes los Tonkis"
+                  : `Te faltan ${formatPoints(missing)} Tonkis`}
+              </p>
+            </div>
+          )}
         </div>
-        {isAdmin ? (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={onEdit}
-              className="rounded-xl border border-tonki-border bg-tonki-canvas py-2.5 text-sm font-bold text-tonki-text transition-colors hover:bg-tonki-elevated"
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              className="rounded-xl border border-red-200 bg-transparent py-2.5 text-sm font-bold text-tonki-danger transition-colors hover:bg-red-50"
-            >
-              Eliminar
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="mt-3 w-full rounded-xl bg-tonki-accent py-2.5 text-sm font-bold text-tonki-accent-fg transition-colors hover:bg-tonki-accent-hover"
-          >
-            Reclamar
-          </button>
-        )}
       </div>
     </article>
   );
@@ -544,12 +751,12 @@ function RewardFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 px-4 py-6 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-tonki-overlay px-4 py-6 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reward-form-title"
     >
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-tonki-border bg-tonki-surface p-5 shadow-xl">
+      <div className="tonki-feed-in max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-tonki-border bg-white p-5 shadow-2xl sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2
@@ -773,12 +980,12 @@ function DeleteRewardConfirm({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 px-4 py-6 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-tonki-overlay px-4 py-6 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="delete-reward-title"
     >
-      <div className="w-full max-w-md rounded-2xl border border-tonki-border bg-tonki-surface p-5 shadow-xl">
+      <div className="tonki-feed-in w-full max-w-md rounded-3xl border border-tonki-border bg-white p-5 shadow-2xl sm:p-6">
         <h2
           id="delete-reward-title"
           className="text-lg font-bold text-tonki-text"
@@ -823,10 +1030,16 @@ function DeleteRewardConfirm({
   );
 }
 
-function SectionHeading({ title }: { title: string }) {
+function SectionHeading({ title, count }: { title: string; count?: number }) {
   return (
-    <div>
+    <div className="flex items-center gap-2">
+      <span aria-hidden className="tonki-hex-cell h-4 w-3.5 bg-tonki-accent" />
       <h2 className="text-lg font-bold tracking-tight text-tonki-text">{title}</h2>
+      {count !== undefined ? (
+        <span className="rounded-full bg-tonki-surface-hover px-2 py-0.5 text-xs font-bold tabular-nums text-tonki-text-muted">
+          {count}
+        </span>
+      ) : null}
     </div>
   );
 }

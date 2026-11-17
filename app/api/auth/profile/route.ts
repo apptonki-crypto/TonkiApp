@@ -9,7 +9,7 @@ import {
 import { profileUpdateSchema } from "src/lib/auth/schemas";
 import { verifySession } from "src/lib/auth/session";
 import { normalizeUserRole } from "src/lib/auth/userRole";
-import { ageFromBirthDate } from "src/lib/auth/walletPendingRegistration";
+import { ageFromBirthDate } from "src/lib/auth/age";
 
 const MIN_AGE = 13;
 const MAX_AGE = 120;
@@ -142,14 +142,9 @@ export async function PATCH(req: Request) {
       },
     });
 
-    const credential = await prisma.credential.findFirst({
-      where: { user_id: user.user_id },
-      select: { username: true },
-    });
-
     return apiSuccess({
       message: "Perfil actualizado",
-      user: toPublicUserDTO(user, credential?.username ?? null),
+      user: toPublicUserDTO(user),
       role,
     });
   } catch (err) {

@@ -11,9 +11,10 @@ describe("sanitizeAuthReturnPath", () => {
 
   it("allows in-app destinations and strips query/hash", () => {
     expect(sanitizeAuthReturnPath("/dashboard?x=1", "user")).toBe("/dashboard");
-    expect(sanitizeAuthReturnPath("/onboarding/wallet", "user")).toBe(
-      "/onboarding/wallet"
+    expect(sanitizeAuthReturnPath("/onboarding/empresa", "user")).toBe(
+      "/onboarding/empresa"
     );
+    expect(sanitizeAuthReturnPath("/onboarding/wallet", "user")).toBeNull();
     expect(sanitizeAuthReturnPath("/account#tab", "user")).toBe("/account");
   });
 
@@ -45,5 +46,18 @@ describe("sanitizeAuthReturnPath", () => {
       `/dinamica/${token}`
     );
     expect(sanitizeAuthReturnPath("/dinamica/short", "user")).toBeNull();
+  });
+
+  it("keeps staff inside /mesero and lets anyone open an invite link", () => {
+    const invite = "abcdefghijklmnopqrstuvwxyz012345";
+    expect(sanitizeAuthReturnPath("/mesero", "staff")).toBe("/mesero");
+    expect(sanitizeAuthReturnPath("/mesero", "user")).toBeNull();
+    expect(sanitizeAuthReturnPath("/mesero", "admin")).toBeNull();
+    expect(sanitizeAuthReturnPath("/dashboard", "staff")).toBeNull();
+    expect(sanitizeAuthReturnPath("/admin/cobrar", "staff")).toBeNull();
+    expect(sanitizeAuthReturnPath(`/mesero/unirse/${invite}`, "user")).toBe(
+      `/mesero/unirse/${invite}`
+    );
+    expect(sanitizeAuthReturnPath("/mesero/unirse/short", "user")).toBeNull();
   });
 });

@@ -54,5 +54,3 @@ export const chargeItemsSchema = z
   .min(1, "Agrega al menos un producto")
   .max(50, "Demasiadas líneas");
 
-export type ProductCreateInput = z.infer<typeof productCreateSchema>;
-export type ProductUpdateInput = z.infer<typeof productUpdateSchema>;

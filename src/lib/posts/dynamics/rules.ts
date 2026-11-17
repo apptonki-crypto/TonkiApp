@@ -22,6 +22,10 @@ export type DynamicRecord = {
   ends_at: Date | null;
   closed_at: Date | null;
   token: string | null;
+  /** Absent in legacy fixtures; treated as `legacy`. */
+  chain_status?: string;
+  contract_id?: string | null;
+  deploy_tx_hash?: string | null;
 };
 
 export const dynamicRecordSelect = {
@@ -38,6 +42,9 @@ export const dynamicRecordSelect = {
   ends_at: true,
   closed_at: true,
   token: true,
+  chain_status: true,
+  contract_id: true,
+  deploy_tx_hash: true,
 } as const;
 
 type DynamicRow = {
@@ -54,6 +61,9 @@ type DynamicRow = {
   ends_at: Date | null;
   closed_at: Date | null;
   token: string | null;
+  chain_status?: string;
+  contract_id?: string | null;
+  deploy_tx_hash?: string | null;
 };
 
 export function toDynamicRecord(row: DynamicRow): DynamicRecord | null {
@@ -72,6 +82,9 @@ export function toDynamicRecord(row: DynamicRow): DynamicRecord | null {
     ends_at: row.ends_at,
     closed_at: row.closed_at,
     token: row.token,
+    chain_status: row.chain_status ?? "legacy",
+    contract_id: row.contract_id ?? null,
+    deploy_tx_hash: row.deploy_tx_hash ?? null,
   };
 }
 

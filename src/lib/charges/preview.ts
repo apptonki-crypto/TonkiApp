@@ -8,6 +8,10 @@ import {
   centsFromStoredAmount,
   pointsForStoredCharge,
 } from "src/lib/charges/creditCharge";
+import {
+  PAY_STATUS_CONFIRMED,
+  STELLAR_ACCOUNT_PATTERN,
+} from "src/lib/charges/settlement/config";
 import { formatPesosFromCents } from "src/lib/charges/tonkis";
 import type { ChargePreview } from "src/lib/charges/types";
 
@@ -25,6 +29,9 @@ export function claimAvailability(input: {
   points: number;
   claimedByUserId: string | null;
   establishmentName: string;
+  payerUserId?: string | null;
+  payStatus?: string | null;
+  businessWalletReady?: boolean;
 }): { can_claim: boolean; block_reason: string | null } {
   if (input.viewerType !== "user" || input.viewerId === input.adminId) {
     return { can_claim: false, block_reason: ADMIN_BLOCK };
@@ -41,7 +48,10 @@ export function claimAvailability(input: {
       block_reason: "Este código ya acreditó Tonkis.",
     };
   }
-  if (input.expired || input.status !== CHARGE_STATUS_PENDING) {
+  const paidByViewer =
+    input.payStatus === PAY_STATUS_CONFIRMED &&
+    input.payerUserId === input.viewerId;
+  if ((input.expired && !paidByViewer) || input.status !== CHARGE_STATUS_PENDING) {
     return {
       can_claim: false,
       block_reason: "Este código venció. Pide uno nuevo en el negocio.",
@@ -51,6 +61,18 @@ export function claimAvailability(input: {
     return {
       can_claim: false,
       block_reason: "Este consumo no alcanza para acreditar Tonkis.",
+    };
+  }
+  if (input.payerUserId && input.payerUserId !== input.viewerId) {
+    return {
+      can_claim: false,
+      block_reason: "Otro cliente ya está pagando este cobro.",
+    };
+  }
+  if (input.businessWalletReady === false) {
+    return {
+      can_claim: false,
+      block_reason: "El negocio aún no tiene una wallet para recibir pagos.",
     };
   }
   return { can_claim: true, block_reason: null };
@@ -84,8 +106,13 @@ export async function loadChargePreview(
       expires_at: true,
       status: true,
       claimed_by_user_id: true,
+      pay_status: true,
+      pay_payer_user_id: true,
+      ramp_order_id: true,
+      ramp_order_state: true,
+      admin: { select: { wallet_address: true } },
       establishment: {
-        select: { name: true, avatar_url: true },
+        select: { establishment_id: true, name: true, avatar_url: true },
       },
       reward: { select: { points: true } },
     },
@@ -102,6 +129,7 @@ export async function loadChargePreview(
   const expired =
     charge.status === CHARGE_STATUS_PENDING &&
     charge.expires_at.getTime() <= Date.now();
+  const payerIsViewer = charge.pay_payer_user_id === viewer.user_id;
   const availability = claimAvailability({
     viewerType: viewer.type,
     viewerId: viewer.user_id,
@@ -111,11 +139,17 @@ export async function loadChargePreview(
     points,
     claimedByUserId: charge.claimed_by_user_id,
     establishmentName: charge.establishment.name,
+    payerUserId: charge.pay_payer_user_id,
+    payStatus: charge.pay_status,
+    businessWalletReady: STELLAR_ACCOUNT_PATTERN.test(
+      charge.admin.wallet_address?.trim() ?? ""
+    ),
   });
 
   return {
     ok: true,
     preview: {
+      establishment_id: charge.establishment.establishment_id,
       establishment_name: charge.establishment.name,
       establishment_avatar_url: charge.establishment.avatar_url,
       amount: formatPesosFromCents(centsFromStoredAmount(charge.amount)),
@@ -126,6 +160,14 @@ export async function loadChargePreview(
       expired,
       can_claim: availability.can_claim,
       block_reason: availability.block_reason,
+      pay_status: charge.pay_status,
+      payer_is_viewer: payerIsViewer,
+      business_wallet_ready: STELLAR_ACCOUNT_PATTERN.test(
+        charge.admin.wallet_address?.trim() ?? ""
+      ),
+      // Only the payer sees the order id; it is useless to anyone else.
+      ramp_order_id: payerIsViewer ? charge.ramp_order_id : null,
+      ramp_order_state: payerIsViewer ? charge.ramp_order_state : null,
     },
   };
 }

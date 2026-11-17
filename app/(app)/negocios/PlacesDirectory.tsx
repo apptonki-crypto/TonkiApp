@@ -1,14 +1,20 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { IconClose } from "src/components/profile/icons";
+import { Notice } from "src/components/profile/ui";
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import type { HiveArrival } from "src/lib/establishment/hiveArrivals";
 import type {
   EstablishmentProfile,
+  EstablishmentVisit,
   PublicEstablishmentCard,
 } from "src/lib/establishment/types";
 
+import { PlacesHive } from "./PlacesHive";
 import { PublicEstablishmentView } from "./PublicEstablishmentView";
 
 type DetailResponse =
@@ -17,10 +23,18 @@ type DetailResponse =
 
 export function PlacesDirectory({
   places,
+  visits,
   initialProfile,
+  arrival,
+  viewerKey,
 }: {
   places: PublicEstablishmentCard[];
+  visits: EstablishmentVisit[] | null;
   initialProfile: EstablishmentProfile | null;
+  /** Llegada explícita desde el QR de presentación o un pago. */
+  arrival: HiveArrival | null;
+  /** Id del cliente con sesión, para recordar en este navegador qué ya se animó. */
+  viewerKey: string | null;
 }) {
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(
@@ -49,6 +63,13 @@ export function PlacesDirectory({
     },
     [router]
   );
+
+  // `?nuevo=` solo sirve una vez: al recargar no se repite la animación.
+  useEffect(() => {
+    if (arrival && !initialProfile) {
+      router.replace("/negocios", { scroll: false });
+    }
+  }, [arrival, initialProfile, router]);
 
   useEffect(() => {
     if (!openId || loadedId.current === openId) return;
@@ -97,99 +118,101 @@ export function PlacesDirectory({
 
   return (
     <>
-      {places.length === 0 ? (
-        <p className="mt-8 text-sm text-tonki-text-muted">
-          Aún no hay negocios publicados.
-        </p>
-      ) : (
-        <ul className="mt-6 grid gap-4 sm:grid-cols-2">
-          {places.map((place) => {
-            const initial = place.name.trim().charAt(0).toUpperCase() || "?";
-            return (
-              <li key={place.establishment_id}>
-                <button
-                  type="button"
-                  onClick={() => open(place.establishment_id)}
-                  className="flex w-full gap-4 rounded-2xl border border-tonki-border bg-tonki-surface p-4 text-left transition-colors hover:bg-tonki-surface-hover"
-                >
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-tonki-canvas p-1.5 text-lg font-bold">
-                    {place.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={place.avatar_url}
-                        alt=""
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    ) : (
-                      initial
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-tonki-text">
-                      {place.name}
-                    </p>
-                    <p className="mt-0.5 truncate text-sm text-tonki-text-muted">
-                      {place.category ?? "Negocio local"} ·{" "}
-                      {place.cashback_percent}% Tonkis
-                    </p>
-                    {place.address ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-tonki-text-faint">
-                        {place.address}
-                      </p>
-                    ) : null}
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <PlacesHive
+        places={places}
+        visits={visits}
+        arrival={arrival}
+        viewerKey={viewerKey}
+        onOpen={open}
+      />
 
-      {openId ? (
-          <div className="fixed inset-0 z-[70]">
+      <AnimatePresence>
+        {openId ? (
+          <motion.div
+            key="place-dialog"
+            className="fixed inset-0 z-[70]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
             <button
               type="button"
               aria-label="Cerrar lugar"
-              className="absolute inset-0 bg-tonki-chrome/65 backdrop-blur-sm"
+              className="absolute inset-0 bg-tonki-chrome/70 backdrop-blur-sm"
               onClick={close}
             />
-            <div className="pointer-events-none absolute inset-0 flex items-end justify-center p-3 pb-[calc(76px+env(safe-area-inset-bottom))] sm:items-center sm:p-6">
-              <article
+            <div className="pointer-events-none absolute inset-0 flex items-end justify-center sm:items-center sm:p-6">
+              <motion.div
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="place-dialog-title"
-                className="pointer-events-auto max-h-[min(88vh,820px)] w-full max-w-lg overflow-y-auto rounded-2xl border border-tonki-border bg-tonki-surface p-5 shadow-2xl"
+                className="pointer-events-auto relative flex max-h-[92svh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] bg-tonki-canvas shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6)] sm:max-h-[min(90vh,860px)] sm:rounded-[28px]"
+                initial={{ y: 48, opacity: 0, scale: 0.98 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 32, opacity: 0, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 380, damping: 34 }}
               >
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <p
-                    id="place-dialog-title"
-                    className="text-sm font-semibold text-tonki-text-muted"
-                  >
-                    Perfil del lugar
-                  </p>
-                  <button
-                    type="button"
-                    onClick={close}
-                    className="rounded-full px-3 py-1 text-sm font-semibold text-tonki-text-muted hover:bg-tonki-elevated hover:text-tonki-text"
-                  >
-                    Cerrar
-                  </button>
+                <span
+                  aria-hidden="true"
+                  className="absolute left-1/2 top-2 z-10 h-1.5 w-10 -translate-x-1/2 rounded-full bg-white/60 sm:hidden"
+                />
+                <button
+                  type="button"
+                  onClick={close}
+                  aria-label="Cerrar"
+                  className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-tonki-chrome/60 text-white backdrop-blur-md transition hover:bg-tonki-chrome"
+                >
+                  <IconClose className="h-4 w-4" />
+                </button>
+                <div className="overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+                  {loading ? (
+                    <PlaceSkeleton />
+                  ) : error ? (
+                    <div className="px-6 pb-10 pt-16">
+                      <h2 id="place-dialog-title" className="sr-only">
+                        Perfil del lugar
+                      </h2>
+                      <Notice tone="error">{error}</Notice>
+                    </div>
+                  ) : profile ? (
+                    <PublicEstablishmentView
+                      profile={profile}
+                      titleId="place-dialog-title"
+                      visits={
+                        visits?.find(
+                          (v) => v.establishment_id === profile.establishment_id
+                        )?.visits
+                      }
+                    />
+                  ) : null}
                 </div>
-                {loading ? (
-                  <p className="py-8 text-sm text-tonki-text-muted">
-                    Cargando lugar…
-                  </p>
-                ) : error ? (
-                  <p role="alert" className="py-8 text-sm text-tonki-danger">
-                    {error}
-                  </p>
-                ) : profile ? (
-                  <PublicEstablishmentView profile={profile} />
-                ) : null}
-              </article>
+              </motion.div>
             </div>
-          </div>
+          </motion.div>
         ) : null}
+      </AnimatePresence>
     </>
+  );
+}
+
+function PlaceSkeleton() {
+  return (
+    <div aria-busy="true" className="animate-pulse">
+      <h2 id="place-dialog-title" className="sr-only">
+        Cargando lugar
+      </h2>
+      <div className="h-40 bg-tonki-chrome/85 sm:h-48" />
+      <div className="px-5 pb-8 sm:px-7">
+        <div className="-mt-12 h-24 w-24 rounded-3xl bg-white ring-4 ring-tonki-canvas" />
+        <div className="mt-5 h-7 w-2/3 rounded-lg bg-tonki-surface-hover" />
+        <div className="mt-3 h-5 w-1/3 rounded-full bg-tonki-surface-hover/70" />
+        <div className="mt-6 space-y-2">
+          <div className="h-4 w-full rounded bg-tonki-surface-hover/60" />
+          <div className="h-4 w-5/6 rounded bg-tonki-surface-hover/60" />
+        </div>
+        <div className="mt-6 h-40 rounded-2xl bg-tonki-surface-hover/50" />
+      </div>
+    </div>
   );
 }

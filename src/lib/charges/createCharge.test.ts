@@ -48,6 +48,21 @@ describe("createConsumptionCharge", () => {
     expect(created.status).toBe("pending");
     expect(created.amount).toEqual(new Prisma.Decimal("150.00"));
     expect(created.line_items).toBeUndefined();
+    expect(created.created_by_staff_id).toBeNull();
+  });
+
+  it("records the waiter who generated the code, charging the business", async () => {
+    const result = await createConsumptionCharge({
+      adminId: "admin-1",
+      amountRaw: "80",
+      origin: "https://tonki.test",
+      createdByStaffId: "staff-user-1",
+    });
+
+    expect(result.ok).toBe(true);
+    const created = prismaMock.charge.create.mock.calls[0][0].data;
+    expect(created.admin_id).toBe("admin-1");
+    expect(created.created_by_staff_id).toBe("staff-user-1");
   });
 
   it("rejects a sale with neither amount nor products", async () => {

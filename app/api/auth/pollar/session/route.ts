@@ -1,6 +1,10 @@
 import { parseRequestJson } from "src/lib/api/readJsonSafely";
 import { apiError, apiSuccess } from "src/lib/api/response";
 import { logAndRespondAuthInfrastructureError } from "src/lib/api/authRouteCatch";
+import {
+  BUSINESS_ONBOARDING_PATH,
+  requiresBusinessProfile,
+} from "src/lib/auth/businessProfile";
 import { toPublicUserDTO } from "src/lib/auth/dto";
 import {
   findOrCreateUserFromPollar,
@@ -18,7 +22,7 @@ import {
   registerPollarExternalUser,
   verifyPollarAccessToken,
 } from "src/lib/auth/verifyPollarToken";
-import prisma from "src/lib/db";
+import { defaultHomeForRole } from "src/lib/staff/constants";
 import type { AuthResponse } from "src/types/auth";
 
 function verifyErrorMessage(reason: PollarVerifyError["reason"]): {
@@ -116,20 +120,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const credential = await prisma.credential.findFirst({
-      where: { user_id: user.user_id },
-      select: { username: true },
-    });
-
-    const redirectTo =
-      sanitizeAuthReturnPath(parsed.data.from, role) ??
-      (role === "admin" ? "/admin/dashboard" : "/dashboard");
+    // Empresa sin perfil público completo: el alta va primero y `from` se ignora.
+    const needsBusinessProfile = requiresBusinessProfile(user);
+    const redirectTo = needsBusinessProfile
+      ? BUSINESS_ONBOARDING_PATH
+      : (sanitizeAuthReturnPath(parsed.data.from, role) ??
+        defaultHomeForRole(role));
 
     const responseBody: AuthResponse = {
       message: "Inicio de sesión exitoso",
-      user: toPublicUserDTO(user, credential?.username ?? null),
+      user: toPublicUserDTO(user),
       role,
       redirectTo,
+      ...(needsBusinessProfile ? { requiresBusinessProfile: true } : {}),
     };
 
     let token: string;

@@ -250,6 +250,9 @@ export async function GET(req: Request) {
     if (!role) {
       return apiError("Cuenta con rol no válido", 403);
     }
+    if (role === "staff") {
+      return apiError("Una cuenta de mesero no tiene recompensas.", 403);
+    }
 
     const pointsAgg = await prisma.reward.aggregate({
       where: { user_id: user.user_id },

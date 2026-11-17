@@ -146,6 +146,14 @@ export type NormalizedDynamic = {
   code: string | null;
   participation_count: number | null;
   establishment_id: string | null;
+  /** legacy | pending | active | failed */
+  chain_status: "legacy" | "pending" | "active" | "failed";
+  /** The contract is required but not live: participation is paused. */
+  awaiting_chain: boolean;
+  /** Author view only. */
+  contract_id: string | null;
+  contract_url: string | null;
+  deploy_tx_hash: string | null;
 };
 
 type ClientResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -712,7 +720,24 @@ export function normalizeDynamic(
     participation_count: readParticipationCount(record),
     establishment_id:
       readString(record.establishment_id) ?? readString(record.establishmentId),
+    chain_status: readChainStatus(record.chain_status),
+    awaiting_chain: readFlag(record.awaiting_chain) ?? false,
+    contract_id: readString(record.contract_id),
+    contract_url: readExplorerUrl(record.contract_url),
+    deploy_tx_hash: readString(record.deploy_tx_hash),
   };
+}
+
+function readChainStatus(value: unknown): NormalizedDynamic["chain_status"] {
+  return value === "pending" || value === "active" || value === "failed"
+    ? value
+    : "legacy";
+}
+
+/** Only https links from the server reach `href`. */
+function readExplorerUrl(value: unknown): string | null {
+  const raw = readString(value);
+  return raw && /^https:\/\//.test(raw) ? raw : null;
 }
 
 export function normalizePostDynamics(
@@ -737,7 +762,11 @@ export function allDynamicsClosed(dynamics: readonly NormalizedDynamic[]): boole
 }
 
 export function canParticipate(dynamic: NormalizedDynamic): boolean {
-  return dynamic.phase === "active" && !dynamic.viewer_participated;
+  return (
+    dynamic.phase === "active" &&
+    !dynamic.viewer_participated &&
+    !dynamic.awaiting_chain
+  );
 }
 
 export function hasNoParticipations(dynamic: NormalizedDynamic): boolean {

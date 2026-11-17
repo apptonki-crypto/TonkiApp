@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "src/lib/auth/session";
+import { STAFF_HOME_PATH, STAFF_JOIN_PATH_PREFIX } from "src/lib/staff/constants";
+
+function isStaffArea(pathname: string): boolean {
+  return pathname === STAFF_HOME_PATH || pathname.startsWith(`${STAFF_HOME_PATH}/`);
+}
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -15,10 +20,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  if (
-    request.nextUrl.pathname.startsWith("/admin") &&
-    session.role !== "admin"
-  ) {
+  const { pathname } = request.nextUrl;
+
+  // Un mesero solo tiene su vista: ni feed de cliente, ni pago de QR, ni panel de negocio.
+  if (session.role === "staff") {
+    if (!isStaffArea(pathname)) {
+      return NextResponse.redirect(new URL(STAFF_HOME_PATH, request.url));
+    }
+    return NextResponse.next();
+  }
+
+  if (isStaffArea(pathname) && !pathname.startsWith(STAFF_JOIN_PATH_PREFIX)) {
+    return NextResponse.redirect(
+      new URL(session.role === "admin" ? "/admin/dashboard" : "/dashboard", request.url)
+    );
+  }
+
+  if (pathname.startsWith("/admin") && session.role !== "admin") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -33,5 +51,8 @@ export const config = {
     "/account/:path*",
     "/cobro/:path*",
     "/dinamica/:path*",
+    "/visita/:path*",
+    "/onboarding/empresa",
+    "/mesero/:path*",
   ],
 };

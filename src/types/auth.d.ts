@@ -1,9 +1,8 @@
-export type UserRole = "admin" | "user";
+export type UserRole = "admin" | "user" | "staff";
 
 export interface PublicUser {
   id: string;
   email: string | null;
-  username: string | null;
   name: string | null;
   first_name: string | null;
   paternal_surname: string | null;
@@ -18,29 +17,8 @@ export interface AuthResponse {
   user: PublicUser;
   role: UserRole;
   redirectTo: string;
-}
-
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
-
-export interface WalletLoginRequest {
-  publicKey: string;
-  signature: string;
-}
-
-/** Returned when Freighter signature is valid but the wallet is not registered yet. */
-export interface WalletNeedsRegistrationResponse {
-  needsRegistration: true;
-  publicKey: string;
-  message: string;
-}
-
-export interface WalletRegisterRequest {
-  email: string;
-  birthDate: string;
-  name?: string;
+  /** Empresa que aún debe llenar su perfil público (alta obligatoria, una vez). */
+  requiresBusinessProfile?: boolean;
 }
 
 /** Wrapped by `apiSuccess`: `{ success: true, user, role }` */

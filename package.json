@@ -11,19 +11,19 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:seed": "prisma db seed",
-    "db:seed-airdrop-demo": "node prisma/seed-airdrop-demo.mjs",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "chain:migrate": "node --env-file-if-exists=.env ./node_modules/vite-node/vite-node.mjs --config vitest.config.ts scripts/migrate-dynamics-to-chain.ts --",
+    "chain:smoke": "node --env-file-if-exists=.env ./node_modules/vite-node/vite-node.mjs --config vitest.config.ts scripts/chain-smoke.ts"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
-    "@pollar/core": "^0.11.3",
-    "@pollar/react": "^0.11.3",
+    "@pollar/core": "^0.12.0",
+    "@pollar/react": "^0.12.0",
     "@prisma/client": "^6.19.2",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^14.6.1",
-    "bcrypt": "^6.0.0",
     "framer-motion": "^12.38.0",
     "jose": "^6.2.3",
     "next": "^16.2.10",
@@ -31,12 +31,10 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "recharts": "^3.10.1",
-    "smart-account-kit": "^0.2.10",
     "zod": "^4.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -46,6 +44,7 @@
     "tailwindcss": "^4",
     "typescript": "^5.9.3",
     "vite": "^8.0.3",
+    "vite-node": "^3.2.4",
     "vitest": "^3.2.6"
   }
 }

@@ -6,6 +6,10 @@ import { motion } from "framer-motion";
 import { useEffect, useMemo, useState, type SVGProps } from "react";
 
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import {
+  HIVE_PENDING_EVENT,
+  hasHivePending,
+} from "src/lib/establishment/hiveArrivalStorage";
 import type { UserRole } from "src/types/auth";
 
 type IconProps = SVGProps<SVGSVGElement>;
@@ -38,6 +42,19 @@ const ADMIN_AIRDROP_ITEM: NavItem = {
 export function BottomNavbar() {
   const pathname = usePathname();
   const [role, setRole] = useState<UserRole | null>(null);
+  const [hivePending, setHivePending] = useState(false);
+
+  // Punto en Lugares tras escanear un QR de presentación o pagar un consumo.
+  useEffect(() => {
+    const sync = () => setHivePending(hasHivePending());
+    sync();
+    window.addEventListener(HIVE_PENDING_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(HIVE_PENDING_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +90,7 @@ export function BottomNavbar() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-tonki-chrome-border bg-tonki-chrome/95 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150 [padding-bottom:env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-50 print:hidden border-t border-tonki-chrome-border bg-tonki-chrome/95 shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150 [padding-bottom:env(safe-area-inset-bottom)]"
     >
       <ul className="mx-auto flex w-full items-stretch justify-around px-1 sm:px-2">
         {navItems.map(({ href, label, Icon }) => {
@@ -85,14 +102,24 @@ export function BottomNavbar() {
               <Link
                 href={href}
                 aria-current={isActive ? "page" : undefined}
-                aria-label={label}
+                aria-label={
+                  href === "/negocios" && hivePending ? `${label}, novedades en tu colmena` : label
+                }
                 className="group relative mx-auto flex min-h-[56px] min-w-[44px] flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-tonki-chrome-text-muted transition-colors duration-200 hover:text-tonki-chrome-text-secondary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tonki-accent/60 data-[active=true]:text-tonki-accent sm:min-w-[48px] sm:px-2"
                 data-active={isActive}
               >
-                <Icon
-                  className="h-6 w-6 shrink-0 transition-transform duration-200 group-active:scale-90"
-                  aria-hidden
-                />
+                <span className="relative">
+                  <Icon
+                    className="h-6 w-6 shrink-0 transition-transform duration-200 group-active:scale-90"
+                    aria-hidden
+                  />
+                  {href === "/negocios" && hivePending && !isActive ? (
+                    <span className="absolute -right-1 -top-1 flex h-3 w-3">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-tonki-accent opacity-75 motion-reduce:hidden" />
+                      <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-tonki-chrome bg-tonki-accent" />
+                    </span>
+                  ) : null}
+                </span>
                 <span className="max-w-full truncate text-[10px] font-semibold leading-none sm:text-[11px]">
                   {label}
                 </span>

@@ -50,6 +50,8 @@ export type CrmSale = {
   created_at: string;
   updated_at: string;
   claimed_by_name: string | null;
+  /** Mesero que generó el QR. Null = lo generó el negocio. */
+  created_by_staff_name: string | null;
   line_items: CrmSaleLineItem[];
 };
 

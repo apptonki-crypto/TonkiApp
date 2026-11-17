@@ -33,13 +33,11 @@ export function composeDisplayName(
 }
 
 export function toPublicUserDTO(
-  user: UserLike,
-  username: string | null
+  user: UserLike
 ): PublicUser {
   return {
     id: user.user_id,
     email: user.email,
-    username,
     name: user.name ?? null,
     first_name: user.first_name ?? null,
     paternal_surname: user.paternal_surname ?? null,

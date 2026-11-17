@@ -11,6 +11,7 @@ import {
   decimalOrNull,
   mapEstablishmentProfile,
 } from "src/lib/establishment/mapProfile";
+import { readEstablishmentRequest } from "src/lib/establishment/parseRequest";
 import { establishmentUpsertSchema } from "src/lib/establishment/schemas";
 
 function findAdminEstablishment(adminId: string) {
@@ -49,36 +50,9 @@ export async function PUT(req: Request) {
     const gate = await requireActiveAdminSession();
     if (!gate.ok) return gate.response;
 
-    const contentType = req.headers.get("content-type") ?? "";
-    let raw: Record<string, unknown>;
-    let photoFile: File | null = null;
-
-    if (contentType.includes("multipart/form-data")) {
-      const form = await req.formData();
-      raw = {
-        name: String(form.get("name") ?? ""),
-        address: String(form.get("address") ?? ""),
-        category: String(form.get("category") ?? ""),
-        description: String(form.get("description") ?? ""),
-        phone: String(form.get("phone") ?? ""),
-        website: String(form.get("website") ?? ""),
-        hours: String(form.get("hours") ?? ""),
-        location_x: String(form.get("location_x") ?? ""),
-        location_y: String(form.get("location_y") ?? ""),
-        location_z: String(form.get("location_z") ?? ""),
-        cashback_percent: String(form.get("cashback_percent") ?? ""),
-      };
-      const maybePhoto = form.get("photo");
-      if (maybePhoto instanceof File && maybePhoto.size > 0) {
-        photoFile = maybePhoto;
-      }
-    } else {
-      try {
-        raw = (await req.json()) as Record<string, unknown>;
-      } catch {
-        return apiError("Cuerpo inválido", 400);
-      }
-    }
+    const body = await readEstablishmentRequest(req);
+    if (!body) return apiError("Cuerpo inválido", 400);
+    const { raw, photoFile } = body;
 
     const parsed = establishmentUpsertSchema.safeParse(raw);
     if (!parsed.success) {

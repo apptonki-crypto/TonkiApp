@@ -5,6 +5,7 @@ import {
   CHARGE_STATUS_PENDING,
   isChargeToken,
 } from "src/lib/charges/constants";
+import { PAY_STATUS_CONFIRMED } from "src/lib/charges/settlement/config";
 import {
   formatPesosFromCents,
   rewardDescriptionForCharge,
@@ -12,6 +13,7 @@ import {
   tonkisFromAmountCents,
 } from "src/lib/charges/tonkis";
 import { applyConsumptionForCreditedCharge } from "src/lib/posts/dynamics";
+import { scheduleChainWork } from "src/lib/posts/chain/schedule";
 
 const ADMIN_BLOCK =
   "Una cuenta de administrador no puede recibir estos Tonkis.";
@@ -48,6 +50,8 @@ type ClaimChargeRow = {
   expires_at: Date;
   status: string;
   claimed_by_user_id: string | null;
+  pay_status: string | null;
+  pay_payer_user_id: string | null;
   establishment: { name: string };
 };
 
@@ -74,7 +78,8 @@ export async function creditChargeForUser(
     return { ok: false, status: 403, error: ADMIN_BLOCK };
   }
 
-  return prisma.$transaction(async (tx) => {
+  let queuedChainJobs = false;
+  const result = await prisma.$transaction(async (tx) => {
     const charge = await tx.charge.findUnique({
       where: { token },
       select: {
@@ -86,6 +91,8 @@ export async function creditChargeForUser(
         expires_at: true,
         status: true,
         claimed_by_user_id: true,
+        pay_status: true,
+        pay_payer_user_id: true,
         establishment: { select: { name: true } },
       },
     });
@@ -103,7 +110,8 @@ export async function creditChargeForUser(
       where: {
         charge_id: charge.charge_id,
         status: CHARGE_STATUS_PENDING,
-        expires_at: { gt: new Date() },
+        pay_status: PAY_STATUS_CONFIRMED,
+        pay_payer_user_id: userId,
       },
       data: {
         status: CHARGE_STATUS_CREDITED,
@@ -124,8 +132,8 @@ export async function creditChargeForUser(
       }
       return {
         ok: false as const,
-        status: 410,
-        error: "Este código venció. Pide uno nuevo en el negocio.",
+        status: 409,
+        error: "No se pudieron acreditar los Tonkis. Intenta de nuevo.",
       };
     }
 
@@ -154,12 +162,13 @@ export async function creditChargeForUser(
       _sum: { points: true },
     });
 
-    await applyConsumptionForCreditedCharge(tx, {
+    const consumption = await applyConsumptionForCreditedCharge(tx, {
       chargeId: charge.charge_id,
       establishmentId: charge.establishment_id,
       userId,
       amount: charge.amount,
     });
+    if ((consumption?.queuedDynamicIds?.length ?? 0) > 0) queuedChainJobs = true;
 
     return {
       ok: true as const,
@@ -168,6 +177,8 @@ export async function creditChargeForUser(
       total_points: pointsAgg._sum.points ?? 0,
     };
   });
+  if (queuedChainJobs && result.ok) scheduleChainWork();
+  return result;
 }
 
 function decideClaim(
@@ -180,13 +191,19 @@ function decideClaim(
   if (charge.status !== CHARGE_STATUS_PENDING) {
     return { ok: false, status: 409, error: alreadyCreditedMessage() };
   }
-  if (charge.expires_at.getTime() <= Date.now()) {
+  // Tonkis only follow a payment that was verified on-chain for this customer.
+  if (
+    charge.pay_status !== PAY_STATUS_CONFIRMED ||
+    charge.pay_payer_user_id !== userId
+  ) {
     return {
       ok: false,
-      status: 410,
-      error: "Este código venció. Pide uno nuevo en el negocio.",
+      status: 402,
+      error: "Falta confirmar el pago de este cobro.",
     };
   }
+  // No expiry check here: a confirmed payment was locked before the code expired,
+  // and the customer's money has already moved.
   const points = pointsForStoredCharge(charge);
   if (points <= 0) {
     return {

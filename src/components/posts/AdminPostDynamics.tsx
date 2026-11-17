@@ -327,6 +327,28 @@ export function AdminPostDynamics({
             {schedule ? (
               <p className="mt-1 text-xs text-tonki-text-muted">{schedule}</p>
             ) : null}
+            {dynamic.chain_status === "pending" ? (
+              <p role="status" className="mt-1 text-xs font-semibold text-amber-800">
+                Activando la dinámica en Stellar…
+              </p>
+            ) : null}
+            {dynamic.chain_status === "failed" ? (
+              <p role="alert" className="mt-1 text-xs font-semibold text-tonki-danger">
+                No se pudo activar en Stellar. Contacta a soporte para reintentar.
+              </p>
+            ) : null}
+            {dynamic.contract_url ? (
+              <p className="mt-1 text-xs text-tonki-text-muted">
+                <a
+                  href={dynamic.contract_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-tonki-accent underline"
+                >
+                  Ver contrato en Stellar
+                </a>
+              </p>
+            ) : null}
             {dynamic.kind === "promo_code" ? (
               code ? (
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-tonki-text">

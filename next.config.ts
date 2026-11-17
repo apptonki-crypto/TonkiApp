@@ -18,12 +18,7 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const nextConfig: NextConfig = {
-  transpilePackages: [
-    "smart-account-kit",
-    "smart-account-kit-bindings",
-    "@pollar/react",
-    "@pollar/core",
-  ],
+  transpilePackages: ["@pollar/react", "@pollar/core"],
   // Allow other devices on the local network to reach the dev server's
   // internal/HMR endpoints without cross-origin warnings.
   allowedDevOrigins: ["192.168.100.48"],

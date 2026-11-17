@@ -35,13 +35,12 @@ model User {
   birth_date        DateTime?
   type              String    @db.VarChar(100)
   status            String    @default("active")
+  // Se escribe una sola vez cuando la empresa completa su perfil público obligatorio.
+  business_profile_completed_at DateTime?
   created_at        DateTime  @default(now())
   updated_at        DateTime  @updatedAt
 
-  credentials         Credential[]
   auth_identities     AuthIdentity[]
-  smart_wallets       SmartWallet[]
-  passkey_credentials PasskeyCredential[]
   establishments      Establishment[]
   establishment_rewards EstablishmentReward[]
   rewards             Reward[]
@@ -49,8 +48,13 @@ model User {
   posts               Post[]
   charges_created     Charge[] @relation("ChargeAdmin")
   charges_claimed     Charge[] @relation("ChargeClaimant")
+  charges_by_staff    Charge[] @relation("ChargeStaff")
+  staff_membership    StaffMember? @relation("StaffUser")
+  staff_members       StaffMember[] @relation("StaffAdmin")
+  staff_invites       StaffInvite[] @relation("StaffInviteAdmin")
   products                 Product[]
   dynamic_participations   PostDynamicParticipation[]
+  check_ins                EstablishmentCheckIn[]
 }
 
 model AuthIdentity {
@@ -70,44 +74,6 @@ model AuthIdentity {
   @@unique([provider, provider_subject])
   @@index([user_id])
   @@index([email])
-}
-
-model SmartWallet {
-  wallet_id        String   @id @default(uuid()) @db.Char(36)
-  user_id          String   @db.Char(36)
-  network          String   @db.VarChar(50)
-  contract_address String   @db.VarChar(100)
-  status           String   @default("pending") @db.VarChar(50)
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-
-  user                User                @relation(fields: [user_id], references: [user_id])
-  passkey_credentials PasskeyCredential[]
-
-  @@unique([network, contract_address])
-  @@unique([user_id, network])
-  @@index([user_id])
-}
-
-model PasskeyCredential {
-  passkey_credential_id String    @id @default(uuid()) @db.Char(36)
-  user_id               String    @db.Char(36)
-  wallet_id             String?   @db.Char(36)
-  credential_id         String    @unique @db.VarChar(512)
-  public_key            String    @db.Text
-  public_key_algorithm  Int?
-  sign_count            BigInt    @default(0)
-  transports            Json?
-  device_label          String?   @db.VarChar(100)
-  last_used_at          DateTime?
-  created_at            DateTime  @default(now())
-  updated_at            DateTime  @updatedAt
-
-  user   User         @relation(fields: [user_id], references: [user_id])
-  wallet SmartWallet? @relation(fields: [wallet_id], references: [wallet_id])
-
-  @@index([user_id])
-  @@index([wallet_id])
 }
 
 model Post {
@@ -141,17 +107,6 @@ model PostAttachment {
   @@index([post_id])
 }
 
-model Credential {
-  credential_id String   @id @default(uuid()) @db.Char(36)
-  user_id       String   @db.Char(36)
-  username      String   @unique @db.VarChar(100)
-  password_hash String   @db.VarChar(256)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
-
-  user User @relation(fields: [user_id], references: [user_id])
-}
-
 model Establishment {
   establishment_id String   @id @default(uuid()) @db.Char(36)
   admin_id         String   @db.Char(36)
@@ -167,6 +122,8 @@ model Establishment {
   location_y       Decimal? @db.Decimal(10, 7)
   location_z       Decimal? @db.Decimal(8, 2)
   cashback_percent Int      @default(5)
+  /// Token del QR de presentación (mostrador). Se crea al pedirlo; rotarlo invalida los QR impresos.
+  presentation_token String? @unique @db.VarChar(64)
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
@@ -177,6 +134,26 @@ model Establishment {
   products      Product[]
   images        EstablishmentImage[]
   post_dynamics PostDynamic[]
+  staff_members StaffMember[]
+  staff_invites StaffInvite[]
+  check_ins     EstablishmentCheckIn[]
+}
+
+/// Visita registrada al escanear el QR de presentación. Una por cliente, negocio y día (hora de CDMX).
+model EstablishmentCheckIn {
+  checkin_id       String   @id @default(uuid()) @db.Char(36)
+  user_id          String   @db.Char(36)
+  establishment_id String   @db.Char(36)
+  /// YYYY-MM-DD en America/Mexico_City.
+  day              String   @db.Char(10)
+  created_at       DateTime @default(now())
+
+  user          User          @relation(fields: [user_id], references: [user_id])
+  establishment Establishment @relation(fields: [establishment_id], references: [establishment_id], onDelete: Cascade)
+
+  @@unique([user_id, establishment_id, day])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([establishment_id, created_at(sort: Desc)])
 }
 
 model EstablishmentImage {
@@ -239,18 +216,40 @@ model Charge {
   status             String    @default("pending") @db.VarChar(20)
   claimed_by_user_id String?   @db.Char(36)
   reward_id          String?   @unique @db.Char(36)
+  /// Liquidación on-chain. Se fija cuando el cliente inicia el pago (cotización bloqueada).
+  pay_asset_code      String?   @db.VarChar(12)
+  pay_asset_issuer    String?   @db.VarChar(56)
+  pay_amount          Decimal?  @db.Decimal(20, 7)
+  /// Pesos por 1 unidad del activo al bloquear la cotización.
+  pay_rate_mxn        Decimal?  @db.Decimal(20, 8)
+  pay_destination     String?   @db.VarChar(56)
+  /// Memo de texto de la transferencia; liga la tx con este cobro.
+  pay_memo            String?   @unique @db.VarChar(28)
+  pay_network         String?   @db.VarChar(10)
+  pay_payer_user_id   String?   @db.Char(36)
+  /// awaiting | confirmed. Solo confirmed permite acreditar Tonkis.
+  pay_status          String?   @db.VarChar(20)
+  pay_tx_hash         String?   @unique @db.VarChar(64)
+  pay_confirmed_at    DateTime?
+  /// Orden de ramp de Pollar que fondea la wallet del pagador. Solo el id y el estado; nunca instrucciones bancarias.
+  ramp_order_id       String?   @unique @db.VarChar(64)
+  ramp_order_state    String?   @db.VarChar(20)
+  /// Mesero (User.type = "staff") que generó el QR. Null = lo generó el negocio.
+  created_by_staff_id String?   @db.Char(36)
   created_at         DateTime  @default(now())
   updated_at         DateTime  @updatedAt
 
   establishment Establishment @relation(fields: [establishment_id], references: [establishment_id])
   admin         User          @relation("ChargeAdmin", fields: [admin_id], references: [user_id])
   claimed_by    User?         @relation("ChargeClaimant", fields: [claimed_by_user_id], references: [user_id])
+  created_by_staff User?      @relation("ChargeStaff", fields: [created_by_staff_id], references: [user_id])
   reward                 Reward?                    @relation(fields: [reward_id], references: [reward_id])
   line_items             ChargeLineItem[]
   dynamic_participations PostDynamicParticipation[]
 
   @@index([admin_id, created_at(sort: Desc)])
   @@index([establishment_id])
+  @@index([created_by_staff_id, created_at(sort: Desc)])
   @@index([claimed_by_user_id, updated_at(sort: Desc)])
   @@index([establishment_id, status, updated_at(sort: Desc)])
 }
@@ -307,6 +306,15 @@ model PostDynamic {
   closed_at        DateTime?
   /// Token del enlace QR. Único; nulo en los tipos que no son qr.
   token            String?   @unique @db.VarChar(64)
+  /// Contrato Soroban de esta dinámica (C...). Nulo mientras es legacy o está pendiente de despliegue.
+  contract_id        String?   @unique @db.VarChar(56)
+  deploy_tx_hash     String?   @db.VarChar(64)
+  /// legacy | pending | active | failed. Solo active permite que el contrato mande.
+  chain_status       String    @default("legacy") @db.VarChar(12)
+  /// Último ledger en el que el reconciliador leyó el contrato.
+  last_synced_ledger Int?
+  /// HMAC-SHA256 hex de la config; es el mismo valor que guarda el contrato.
+  config_hash        String?   @db.Char(64)
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 
@@ -316,6 +324,7 @@ model PostDynamic {
 
   @@index([post_id])
   @@index([establishment_id, kind, status])
+  @@index([chain_status, status])
 }
 
 model PostDynamicParticipation {
@@ -326,6 +335,8 @@ model PostDynamicParticipation {
   charge_id        String?  @db.Char(36)
   /// user_id en going, promo_code y qr. Nulo en charge: MySQL admite varios NULL y el mismo cliente puede sumar compras. El cupo de consumo lo cierra (dynamic_id, charge_id).
   person_key       String?  @db.Char(36)
+  /// Transacción Soroban que registró esta participación. Nulo en legacy.
+  tx_hash          String?  @db.VarChar(64)
   created_at       DateTime @default(now())
 
   dynamic PostDynamic @relation(fields: [dynamic_id], references: [dynamic_id], onDelete: Cascade)
@@ -337,6 +348,33 @@ model PostDynamicParticipation {
   @@index([dynamic_id])
   @@index([user_id])
   @@index([charge_id])
+}
+
+/// Cola de trabajo hacia Soroban. Sin FK a PostDynamic: los trabajos de cierre deben sobrevivir a la fila borrada.
+model DynamicChainJob {
+  job_id          String    @id @default(uuid()) @db.Char(36)
+  dynamic_id      String    @db.Char(36)
+  contract_id     String?   @db.VarChar(56)
+  /// deploy | participation | consume | close
+  type            String    @db.VarChar(20)
+  /// Hace idempotente el encolado: hash de config, charge_id, user_id o contract_id.
+  dedupe_key      String    @db.VarChar(80)
+  payload         Json?
+  /// pending | processing | done | failed
+  status          String    @default("pending") @db.VarChar(12)
+  attempts        Int       @default(0)
+  next_attempt_at DateTime  @default(now())
+  locked_at       DateTime?
+  last_error      String?   @db.VarChar(500)
+  tx_hash         String?   @db.VarChar(64)
+  /// Comisión de red pagada, en stroops (1 XLM = 10,000,000).
+  fee_stroops     BigInt?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  @@unique([dynamic_id, type, dedupe_key])
+  @@index([status, next_attempt_at])
+  @@index([dynamic_id])
 }
 
 model AirdropConfig {
@@ -388,4 +426,40 @@ model AirdropLog {
   response_json    String?  @db.Text
 
   config AirdropConfig @relation(fields: [config_id], references: [config_id])
+}
+
+/// Mesero vinculado a un negocio. Un usuario solo puede ser mesero de un negocio.
+model StaffMember {
+  staff_id         String    @id @default(uuid()) @db.Char(36)
+  user_id          String    @unique @db.Char(36)
+  establishment_id String    @db.Char(36)
+  admin_id         String    @db.Char(36)
+  /// active | revoked
+  status           String    @default("active") @db.VarChar(20)
+  created_at       DateTime  @default(now())
+  revoked_at       DateTime?
+
+  user          User          @relation("StaffUser", fields: [user_id], references: [user_id])
+  admin         User          @relation("StaffAdmin", fields: [admin_id], references: [user_id])
+  establishment Establishment @relation(fields: [establishment_id], references: [establishment_id])
+
+  @@index([admin_id, status])
+}
+
+/// Invitación de un solo uso para vincular a un mesero. Solo se guarda el hash del token.
+model StaffInvite {
+  invite_id        String    @id @default(uuid()) @db.Char(36)
+  admin_id         String    @db.Char(36)
+  establishment_id String    @db.Char(36)
+  token_hash       String    @unique @db.Char(64)
+  expires_at       DateTime
+  used_at          DateTime?
+  used_by_user_id  String?   @db.Char(36)
+  revoked_at       DateTime?
+  created_at       DateTime  @default(now())
+
+  admin         User          @relation("StaffInviteAdmin", fields: [admin_id], references: [user_id])
+  establishment Establishment @relation(fields: [establishment_id], references: [establishment_id])
+
+  @@index([admin_id, created_at(sort: Desc)])
 }

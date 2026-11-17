@@ -28,6 +28,3 @@ export const establishmentRewardUpdateSchema = z.object({
     .max(1_000_000, "Valor en $ demasiado alto"),
 });
 
-export type EstablishmentRewardUpdateInput = z.infer<
-  typeof establishmentRewardUpdateSchema
->;

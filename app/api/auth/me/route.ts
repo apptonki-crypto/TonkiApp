@@ -24,18 +24,13 @@ export async function GET(req: Request) {
       return apiError("Cuenta suspendida", 403);
     }
 
-    const credential = await prisma.credential.findFirst({
-      where: { user_id: user.user_id },
-      select: { username: true },
-    });
-
     const role = normalizeUserRole(user.type);
     if (!role) {
       return apiError("Cuenta con rol no válido", 403);
     }
 
     return apiSuccess({
-      user: toPublicUserDTO(user, credential?.username ?? null),
+      user: toPublicUserDTO(user),
       role,
     });
   } catch (err) {

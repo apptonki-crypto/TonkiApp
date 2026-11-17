@@ -22,6 +22,7 @@ import {
   parseCreateDynamicsField,
 } from "src/lib/posts/dynamicRequests";
 import { loadPublicDynamicsByPost } from "src/lib/posts/loadPublicDynamics";
+import { scheduleChainWork } from "src/lib/posts/chain/schedule";
 
 export async function GET(req: Request) {
   try {
@@ -266,6 +267,7 @@ export async function POST(req: Request) {
       });
       await createPostDynamics(tx, postId, parsedDynamics.data);
     });
+    if (parsedDynamics.data.length > 0) scheduleChainWork();
 
     const dynamicsByPost = await loadPublicDynamicsByPost(
       [postId],

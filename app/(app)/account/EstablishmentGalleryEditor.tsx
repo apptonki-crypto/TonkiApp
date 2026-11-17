@@ -2,8 +2,12 @@
 
 import { useState, type ChangeEvent } from "react";
 
+import { IconClose, IconImage, IconPlus } from "src/components/profile/icons";
+import { Notice, Panel } from "src/components/profile/ui";
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
 import type { EstablishmentProfile } from "src/lib/establishment/types";
+
+const MAX_IMAGES = 8;
 
 type ResponseBody =
   | { success: true; establishment: EstablishmentProfile }
@@ -71,55 +75,71 @@ export function EstablishmentGalleryEditor({
     }
   }
 
+  const full = images.length >= MAX_IMAGES;
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-tonki-text">Fotos del lugar</p>
-          <p className="text-xs text-tonki-text-faint">
-            Hasta 8 imágenes públicas. JPG, PNG, GIF o WebP · máx. 2 MB
-          </p>
-        </div>
-        <label className="shrink-0 cursor-pointer rounded-xl bg-tonki-accent px-3 py-2 text-sm font-bold text-tonki-accent-fg">
-          {busy ? "…" : "Agregar"}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            className="sr-only"
-            disabled={busy || images.length >= 8}
-            onChange={(event) => void upload(event)}
-          />
-        </label>
-      </div>
+    <Panel
+      icon={<IconImage className="h-5 w-5" />}
+      title="Fotos del lugar"
+      description="Se muestran en tu perfil público. JPG, PNG, GIF o WebP · máx. 2 MB"
+      action={
+        <span className="rounded-full bg-tonki-surface-hover px-3 py-1 text-xs font-bold tabular-nums text-tonki-text-secondary">
+          {images.length}/{MAX_IMAGES}
+        </span>
+      }
+    >
       {error ? (
-        <p role="alert" className="text-sm text-tonki-danger">
-          {error}
-        </p>
+        <div className="mb-4">
+          <Notice tone="error">{error}</Notice>
+        </div>
       ) : null}
-      {images.length === 0 ? (
-        <p className="text-sm text-tonki-text-muted">Aún no hay fotos del lugar.</p>
-      ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {images.map((image) => (
-            <li key={image.image_id} className="space-y-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={image.url}
-                alt=""
-                className="aspect-[4/3] w-full rounded-xl object-cover"
-              />
-              <button
-                type="button"
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {images.map((image) => (
+          <li
+            key={image.image_id}
+            className="group relative aspect-square overflow-hidden rounded-2xl bg-tonki-surface-hover"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={image.url}
+              alt=""
+              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void remove(image.image_id)}
+              aria-label="Quitar foto"
+              className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-tonki-chrome/75 text-white backdrop-blur transition hover:bg-tonki-danger disabled:opacity-50 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+            >
+              <IconClose className="h-4 w-4" />
+            </button>
+          </li>
+        ))}
+        {!full ? (
+          <li className="aspect-square">
+            <label
+              className={`flex h-full w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-tonki-border-strong bg-white/40 text-tonki-text-muted transition hover:border-tonki-accent hover:bg-tonki-accent/10 hover:text-tonki-text ${
+                busy ? "pointer-events-none opacity-60" : ""
+              }`}
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-tonki-accent text-tonki-accent-fg">
+                <IconPlus className="h-5 w-5" />
+              </span>
+              <span className="text-xs font-semibold">
+                {busy ? "Subiendo…" : "Agregar foto"}
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="sr-only"
                 disabled={busy}
-                onClick={() => void remove(image.image_id)}
-                className="text-xs font-semibold text-tonki-danger"
-              >
-                Quitar
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                onChange={(event) => void upload(event)}
+              />
+            </label>
+          </li>
+        ) : null}
+      </ul>
+    </Panel>
   );
 }

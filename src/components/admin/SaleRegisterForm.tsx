@@ -51,6 +51,8 @@ export type SaleRegisterFormProps = {
   /** Permite abrir el modo productos aunque el catálogo esté vacío. */
   allowEmptyProductMode?: boolean;
   emptyCatalog?: ReactNode;
+  /** API que crea el cobro: `/api/charges` (negocio) o `/api/staff/charges` (mesero). */
+  endpoint?: string;
 };
 
 export function SaleRegisterForm({
@@ -69,6 +71,7 @@ export function SaleRegisterForm({
   result,
   allowEmptyProductMode = false,
   emptyCatalog,
+  endpoint = "/api/charges",
 }: SaleRegisterFormProps) {
   const [mode, setMode] = useState<RegisterMode>("amount");
   const [amount, setAmount] = useState("");
@@ -147,7 +150,7 @@ export function SaleRegisterForm({
               }
             : { amount: amount.trim() };
 
-        const res = await fetch("/api/charges", {
+        const res = await fetch(endpoint, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -168,7 +171,7 @@ export function SaleRegisterForm({
         setSaving(false);
       }
     },
-    [amount, cartLines, errorFallback, mode, onRegistered]
+    [amount, cartLines, endpoint, errorFallback, mode, onRegistered]
   );
 
   const productsDisabled =
@@ -323,8 +326,9 @@ export function SaleRegisterForm({
         result === "detailed" ? (
           <div className="space-y-4 border-t border-tonki-border pt-6">
             <p className="text-sm font-medium text-tonki-text">
-              Muestra este código. Al confirmarlo, se acreditan{" "}
-              {charge.points.toLocaleString("es-MX")} Tonkis. No es un pago.
+              Muestra este código. El cliente paga desde su wallet o con pesos,
+              y al confirmarse el pago se acreditan{" "}
+              {charge.points.toLocaleString("es-MX")} Tonkis.
             </p>
             {charge.qr_image.startsWith("data:image/") ? (
               <div className="mx-auto w-full max-w-[280px] rounded-2xl border border-tonki-border bg-tonki-canvas p-4">
@@ -340,13 +344,16 @@ export function SaleRegisterForm({
               {charge.url}
             </p>
             <ul className="space-y-1 text-sm text-tonki-text-secondary">
-              <li>Monto de referencia: {formatMoney(charge.amount)}</li>
+              <li>Monto a cobrar: {formatMoney(charge.amount)}</li>
               <li>Porcentaje congelado: {charge.cashback_percent}%</li>
               <li>
                 Tonkis a acreditar: {charge.points.toLocaleString("es-MX")}
               </li>
               <li>Vence: {formatWhen(charge.expires_at)}</li>
-              <li>Un solo uso. El mismo código no acredita dos veces.</li>
+              <li>
+                El pago llega a la wallet de tu negocio. Un solo uso: el mismo
+                código no acredita dos veces.
+              </li>
             </ul>
           </div>
         ) : (

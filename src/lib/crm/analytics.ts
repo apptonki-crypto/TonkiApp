@@ -40,6 +40,7 @@ const CSV_HEADERS = [
   "id de venta",
   "estado",
   "cliente",
+  "generó",
   "monto de la venta",
   "producto",
   "cantidad",
@@ -306,6 +307,7 @@ export function buildCrmCsv(sales: CrmSale[]): string {
       sale.charge_id,
       crmSaleStatusLabel(sale.status),
       sale.claimed_by_name ?? "",
+      sale.created_by_staff_name ?? "Negocio",
       sale.amount,
     ];
 

@@ -1,5 +1,6 @@
 import { Prisma } from "src/generated/prisma/client";
 
+import { isChainAuthoritative } from "src/lib/posts/chain/authority";
 import {
   closeTransition,
   dynamicRecordSelect,
@@ -19,6 +20,10 @@ export async function evaluateAndCloseDynamic(
   if (!row) return null;
   const dynamic = toDynamicRecord(row);
   if (!dynamic) return null;
+
+  // The contract owns the lifecycle. The close worker syncs the mirror; summaries
+  // still derive the phase from time and goal without writing.
+  if (isChainAuthoritative(dynamic)) return dynamic;
 
   const next = closeTransition(dynamic, now);
   if (!next) return dynamic;

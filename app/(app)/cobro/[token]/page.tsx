@@ -4,21 +4,15 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { usePollarReady } from "src/components/PollarAppProvider";
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
+import { markHivePending } from "src/lib/establishment/hiveArrivalStorage";
 import type { ChargePreview } from "src/lib/charges/types";
+
+import { PollarPayActions, type CreditedResult } from "./PollarPayActions";
 
 type PreviewResponse =
   | { success: true; charge: ChargePreview }
-  | { success: false; error?: string };
-
-type ClaimResponse =
-  | {
-      success: true;
-      message?: string;
-      points: number;
-      establishment_name: string;
-      total_points: number;
-    }
   | { success: false; error?: string };
 
 function formatMoney(amount: string): string {
@@ -37,12 +31,16 @@ export default function CobroPage() {
   const [loading, setLoading] = useState(true);
   const [charge, setCharge] = useState<ChargePreview | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [claiming, setClaiming] = useState(false);
-  const [credited, setCredited] = useState<{
-    points: number;
-    establishment_name: string;
-    total_points: number;
-  } | null>(null);
+  const pollarReady = usePollarReady();
+  const [credited, setCredited] = useState<CreditedResult | null>(null);
+
+  // El consumo también suma al panal: Lugares muestra un punto hasta que se abra.
+  const establishmentId = charge?.establishment_id ?? null;
+  useEffect(() => {
+    if (credited && establishmentId) {
+      markHivePending({ establishment_id: establishmentId, via: "consumo" });
+    }
+  }, [credited, establishmentId]);
 
   const load = useCallback(async () => {
     if (!token) {
@@ -90,40 +88,13 @@ export default function CobroPage() {
     };
   }, [load]);
 
-  const handleClaim = useCallback(async () => {
-    if (!token) return;
-    setClaiming(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/cobro/${encodeURIComponent(token)}`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (res.status === 401) {
-        router.replace(`/login?from=${encodeURIComponent(`/cobro/${token}`)}`);
-        return;
-      }
-      const data = await readJsonSafely<ClaimResponse>(res);
-      if (!res.ok || !data?.success || !("points" in data)) {
-        setError(
-          data && "error" in data && data.error
-            ? data.error
-            : "No se pudieron acreditar los Tonkis"
-        );
-        await load();
-        return;
-      }
-      setCredited({
-        points: data.points,
-        establishment_name: data.establishment_name,
-        total_points: data.total_points,
-      });
-    } catch {
-      setError("No se pudieron acreditar los Tonkis");
-    } finally {
-      setClaiming(false);
-    }
-  }, [load, router, token]);
+  const handleError = useCallback(
+    (message: string) => {
+      setError(message);
+      void load().catch(() => undefined);
+    },
+    [load]
+  );
 
   if (loading) {
     return (
@@ -141,15 +112,23 @@ export default function CobroPage() {
             Se acreditaron {credited.points.toLocaleString("es-MX")} Tonkis
           </h1>
           <p className="text-sm text-tonki-text-secondary sm:text-base">
-            {credited.establishment_name} sumó estos Tonkis a tu perfil. No se
-            realizó ningún pago.
+            Tu pago a {credited.establishment_name} se confirmó y los Tonkis ya
+            están en tu perfil.
           </p>
           <p className="text-sm font-semibold text-tonki-text">
             Tu saldo: {credited.total_points.toLocaleString("es-MX")} Tonkis
           </p>
+          {charge ? (
+            <Link
+              href={`/negocios?nuevo=${encodeURIComponent(charge.establishment_id)}&via=consumo`}
+              className="block w-full rounded-xl bg-tonki-accent px-4 py-3 text-center text-base font-bold text-tonki-accent-fg transition-colors hover:bg-tonki-accent-hover"
+            >
+              Ver tu colmena
+            </Link>
+          ) : null}
           <Link
             href="/account"
-            className="block w-full rounded-xl bg-tonki-accent px-4 py-3 text-center text-base font-bold text-tonki-accent-fg transition-colors hover:bg-tonki-accent-hover"
+            className="block w-full rounded-xl border border-tonki-border px-4 py-3 text-center text-base font-semibold text-tonki-text-secondary transition-colors hover:bg-tonki-surface-hover"
           >
             Ver tu perfil
           </Link>
@@ -201,19 +180,20 @@ export default function CobroPage() {
           <p className="text-base text-tonki-text-secondary">
             {charge.can_claim ? (
               <>
-                Vas a recibir{" "}
+                Pagas{" "}
+                <span className="font-bold text-tonki-text">
+                  {formatMoney(charge.amount)}
+                </span>{" "}
+                a {charge.establishment_name} desde tu wallet y recibes{" "}
                 <span className="font-bold text-tonki-text">
                   {charge.points.toLocaleString("es-MX")} Tonkis
                 </span>{" "}
-                de {charge.establishment_name}. El monto de referencia es{" "}
-                {formatMoney(charge.amount)} ({charge.cashback_percent}%). No se
-                cobra ni se mueve dinero.
+                ({charge.cashback_percent}%).
               </>
             ) : (
               <>
-                {charge.establishment_name}. Monto de referencia:{" "}
-                {formatMoney(charge.amount)} ({charge.cashback_percent}%). No se
-                cobra ni se mueve dinero.
+                {charge.establishment_name}. Total: {formatMoney(charge.amount)}{" "}
+                ({charge.cashback_percent}%).
               </>
             )}
           </p>
@@ -225,14 +205,21 @@ export default function CobroPage() {
           ) : null}
 
           {charge.can_claim ? (
-            <button
-              type="button"
-              disabled={claiming}
-              onClick={() => void handleClaim()}
-              className="w-full rounded-xl bg-tonki-accent px-4 py-3 text-base font-bold text-tonki-accent-fg transition-colors hover:bg-tonki-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {claiming ? "Acreditando…" : "Recibir Tonkis"}
-            </button>
+            pollarReady ? (
+              <PollarPayActions
+                token={token}
+                pesosLabel={charge.amount}
+                resuming={charge.payer_is_viewer && charge.pay_status !== null}
+                payStatus={charge.pay_status}
+                rampOrderId={charge.ramp_order_id}
+                onCredited={setCredited}
+                onError={handleError}
+              />
+            ) : (
+              <p className="rounded-xl border border-tonki-border bg-tonki-canvas px-4 py-3 text-sm text-tonki-text-secondary">
+                El pago con Pollar no está disponible en este momento.
+              </p>
+            )
           ) : null}
         </section>
       ) : null}

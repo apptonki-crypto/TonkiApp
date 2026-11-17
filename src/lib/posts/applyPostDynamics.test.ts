@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Keypair } from "@stellar/stellar-sdk";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   isDynamicClaimToken,
@@ -16,15 +17,18 @@ const prismaMock = vi.hoisted(() => {
     delete: vi.fn(),
   };
   const postDynamicParticipation = { count: vi.fn() };
+  const dynamicChainJob = { upsert: vi.fn() };
   const queryRaw = vi.fn();
   const tx = {
     postDynamic,
     postDynamicParticipation,
+    dynamicChainJob,
     $queryRaw: queryRaw,
   };
   return {
     postDynamic,
     postDynamicParticipation,
+    dynamicChainJob,
     $queryRaw: queryRaw,
     $transaction: vi.fn(async (fn: (client: typeof tx) => Promise<void>) => fn(tx)),
   };
@@ -226,5 +230,224 @@ describe("applyDynamicPatch", () => {
       })
     ).rejects.toMatchObject({ status: 409 });
     expect(prismaMock.postDynamic.delete).not.toHaveBeenCalled();
+  });
+});
+
+function stubChainEnv(mode: "shadow" | "on" = "shadow", kinds = "all") {
+  vi.stubEnv("DYNAMICS_CHAIN_MODE", mode);
+  vi.stubEnv("DYNAMICS_CHAIN_KINDS", kinds);
+  vi.stubEnv("DYNAMIC_WASM_HASH", "a".repeat(64));
+  vi.stubEnv("STELLAR_DEPLOYER_SECRET_KEY", Keypair.random().secret());
+  vi.stubEnv("DYNAMICS_HASH_SECRET", "s".repeat(32));
+}
+
+function upsertedJobs() {
+  return prismaMock.dynamicChainJob.upsert.mock.calls.map(
+    (call) => call[0].create as Record<string, unknown>
+  );
+}
+
+describe("chain-aware dynamics", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue([{ dynamic_id: GOING_ID }]);
+    prismaMock.postDynamicParticipation.count.mockResolvedValue(0);
+    prismaMock.postDynamic.count.mockResolvedValue(1);
+    prismaMock.postDynamic.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.postDynamic.create.mockResolvedValue({});
+    prismaMock.postDynamic.update.mockResolvedValue({});
+    prismaMock.postDynamic.delete.mockResolvedValue({});
+    prismaMock.dynamicChainJob.upsert.mockResolvedValue({});
+  });
+
+  it("creates dynamics as pending and queues one deploy each when the chain is on", async () => {
+    stubChainEnv("shadow");
+    const creates: Array<Record<string, unknown>> = [];
+    const tx = {
+      postDynamic: {
+        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          creates.push(data);
+        }),
+      },
+      dynamicChainJob: prismaMock.dynamicChainJob,
+    };
+
+    await createPostDynamics(
+      tx as never,
+      POST_ID,
+      parsedCreate([
+        { kind: "going", text: "Voy" },
+        { kind: "qr", text: "Escanea", goal_count: 2 },
+      ]),
+      NOW
+    );
+
+    expect(creates.map((row) => row.chain_status)).toEqual(["pending", "pending"]);
+    for (const row of creates) {
+      expect(row.config_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(row.dynamic_id).toEqual(expect.any(String));
+    }
+    const jobs = upsertedJobs();
+    expect(jobs.map((job) => job.type)).toEqual(["deploy", "deploy"]);
+    expect(jobs.map((job) => job.dynamic_id)).toEqual(creates.map((row) => row.dynamic_id));
+    expect(jobs[0].dedupe_key).toBe(creates[0].config_hash);
+  });
+
+  it("only deploys the kinds enabled for the rollout", async () => {
+    stubChainEnv("shadow", "going");
+    const creates: Array<Record<string, unknown>> = [];
+    const tx = {
+      postDynamic: {
+        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          creates.push(data);
+        }),
+      },
+      dynamicChainJob: prismaMock.dynamicChainJob,
+    };
+
+    await createPostDynamics(
+      tx as never,
+      POST_ID,
+      parsedCreate([
+        { kind: "going", text: "Voy" },
+        { kind: "qr", text: "Escanea", goal_count: 2 },
+      ]),
+      NOW
+    );
+
+    expect(creates[0].chain_status).toBe("pending");
+    expect(creates[1]).not.toHaveProperty("chain_status");
+    expect(upsertedJobs()).toHaveLength(1);
+  });
+
+  it("falls back to the database in shadow mode when the chain is not configured", async () => {
+    vi.stubEnv("DYNAMICS_CHAIN_MODE", "shadow");
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const create = vi.fn();
+    await createPostDynamics(
+      { postDynamic: { create }, dynamicChainJob: prismaMock.dynamicChainJob } as never,
+      POST_ID,
+      parsedCreate([{ kind: "going", text: "Voy" }]),
+      NOW
+    );
+    expect(create.mock.calls[0][0].data).not.toHaveProperty("chain_status");
+    expect(prismaMock.dynamicChainJob.upsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to create dynamics in on mode when the chain is not configured", async () => {
+    vi.stubEnv("DYNAMICS_CHAIN_MODE", "on");
+    const create = vi.fn();
+    await expect(
+      createPostDynamics(
+        { postDynamic: { create }, dynamicChainJob: prismaMock.dynamicChainJob } as never,
+        POST_ID,
+        parsedCreate([{ kind: "going", text: "Voy" }]),
+        NOW
+      )
+    ).rejects.toMatchObject({ status: 503 });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("replaces the contract when an edited dynamic had one", async () => {
+    stubChainEnv("shadow");
+    const CONTRACT = "C".padEnd(56, "A");
+    prismaMock.postDynamic.findMany.mockResolvedValue([
+      {
+        dynamic_id: QR_ID,
+        kind: "qr",
+        status: "active",
+        establishment_id: null,
+        token: QR_TOKEN,
+        _count: { participations: 0 },
+      },
+    ]);
+    prismaMock.postDynamic.findUnique.mockResolvedValue({
+      kind: "qr",
+      status: "active",
+      token: QR_TOKEN,
+      contract_id: CONTRACT,
+    });
+    const [qr] = parsedCreate([{ kind: "qr", text: "Texto nuevo", goal_count: 6 }]);
+
+    await applyDynamicPatch({
+      postId: POST_ID,
+      now: NOW,
+      patch: { upserts: [{ dynamic_id: QR_ID, input: qr }], close_ids: [], remove_ids: [] },
+    });
+
+    const data = prismaMock.postDynamic.update.mock.calls[0][0].data;
+    expect(data).toMatchObject({
+      contract_id: null,
+      deploy_tx_hash: null,
+      chain_status: "pending",
+      token: QR_TOKEN,
+    });
+    expect(data.config_hash).toMatch(/^[0-9a-f]{64}$/);
+    const jobs = upsertedJobs();
+    expect(jobs.map((job) => job.type)).toEqual(["close", "deploy"]);
+    expect(jobs[0]).toMatchObject({ contract_id: CONTRACT, dynamic_id: QR_ID });
+    expect(jobs[0].dedupe_key).toBe(`force:${CONTRACT}`);
+  });
+
+  it("closes the contract before deleting a dynamic that had one", async () => {
+    stubChainEnv("shadow");
+    const CONTRACT = "C".padEnd(56, "B");
+    prismaMock.postDynamic.findMany.mockResolvedValue([
+      {
+        dynamic_id: GOING_ID,
+        kind: "going",
+        status: "active",
+        establishment_id: null,
+        token: null,
+        _count: { participations: 0 },
+      },
+    ]);
+    prismaMock.postDynamic.findUnique.mockResolvedValue({ contract_id: CONTRACT });
+
+    await applyDynamicPatch({
+      postId: POST_ID,
+      now: NOW,
+      patch: { upserts: [], close_ids: [], remove_ids: [GOING_ID] },
+    });
+
+    expect(prismaMock.dynamicChainJob.upsert).toHaveBeenCalledTimes(1);
+    expect(upsertedJobs()[0]).toMatchObject({
+      type: "close",
+      contract_id: CONTRACT,
+      dynamic_id: GOING_ID,
+    });
+    expect(prismaMock.postDynamic.delete).toHaveBeenCalledWith({
+      where: { dynamic_id: GOING_ID },
+    });
+  });
+
+  it("queues a forced close when the author closes a dynamic with a contract", async () => {
+    stubChainEnv("shadow");
+    const CONTRACT = "C".padEnd(56, "D");
+    prismaMock.postDynamic.findMany.mockResolvedValue([
+      {
+        dynamic_id: GOING_ID,
+        kind: "going",
+        status: "active",
+        establishment_id: null,
+        token: null,
+        _count: { participations: 2 },
+      },
+    ]);
+    prismaMock.postDynamic.findUnique.mockResolvedValue({ contract_id: CONTRACT });
+
+    await applyDynamicPatch({
+      postId: POST_ID,
+      now: NOW,
+      patch: { upserts: [], close_ids: [GOING_ID], remove_ids: [] },
+    });
+
+    expect(upsertedJobs()).toEqual([
+      expect.objectContaining({ type: "close", contract_id: CONTRACT }),
+    ]);
   });
 });

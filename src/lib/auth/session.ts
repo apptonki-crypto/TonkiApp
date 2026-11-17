@@ -32,7 +32,9 @@ async function decodeToken(token: string): Promise<SessionClaims | null> {
     });
     const userId = typeof payload.sub === "string" ? payload.sub : null;
     const role =
-      payload.role === "admin" || payload.role === "user"
+      payload.role === "admin" ||
+      payload.role === "user" ||
+      payload.role === "staff"
         ? (payload.role as UserRole)
         : null;
     if (!userId || !role) return null;

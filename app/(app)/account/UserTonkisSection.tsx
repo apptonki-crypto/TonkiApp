@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { IconHex } from "src/components/profile/icons";
+import { HexBadge, Notice, Panel, initialOf } from "src/components/profile/ui";
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
 import type { TonkisCredit } from "src/lib/account/types";
 
@@ -51,51 +53,107 @@ export function UserTonkisSection() {
   }, []);
 
   return (
-    <div className="mt-8 space-y-4">
-      <section className="overflow-hidden rounded-2xl bg-tonki-accent p-5 text-tonki-accent-fg">
-        <p className="text-sm font-semibold uppercase tracking-wider text-tonki-accent-fg/70">
-          Tus Tonkis
-        </p>
-        <p className="mt-1 text-4xl font-bold tracking-tight">
-          {loading ? "…" : formatPoints(totalPoints)}
-        </p>
-        <p className="mt-4 text-sm font-medium text-tonki-accent-fg/80">
-          Puntos acumulados por tus consumos.
-        </p>
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <section className="relative isolate flex min-h-52 flex-col justify-between overflow-hidden rounded-3xl bg-tonki-accent p-6 text-tonki-accent-fg shadow-[0_20px_44px_-24px_rgba(157,77,3,0.7)] sm:p-7">
+        <div className="tonki-hex-light tonki-mask-fade absolute inset-0 -z-10" />
+        <svg
+          viewBox="0 0 100 100"
+          aria-hidden="true"
+          className="absolute -bottom-10 -right-8 -z-10 h-48 w-48 text-tonki-cta/25"
+        >
+          <path
+            d="M50 4 90 27v46L50 96 10 73V27Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={6}
+          />
+          <path d="M50 26 70 37.5v23L50 72 30 60.5v-23Z" fill="currentColor" />
+        </svg>
+        <div className="flex items-center gap-2">
+          <HexBadge tone="chrome" className="h-9 w-9">
+            <IconHex className="h-4 w-4" />
+          </HexBadge>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-tonki-accent-fg/75">
+            Tu saldo
+          </p>
+        </div>
+        <div className="mt-6">
+          <p className="text-5xl font-bold leading-none tracking-tight tabular-nums sm:text-6xl">
+            {loading ? (
+              <span className="inline-block h-12 w-32 animate-pulse rounded-xl bg-tonki-accent-fg/15" />
+            ) : (
+              formatPoints(totalPoints)
+            )}
+          </p>
+          <p className="mt-2 text-sm font-semibold text-tonki-accent-fg/80">
+            Tonkis acumulados por tus consumos
+          </p>
+        </div>
       </section>
 
-      <section className="rounded-2xl border border-tonki-border bg-tonki-surface p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-tonki-text">
-          Últimos Tonkis acreditados
-        </h2>
+      <Panel
+        title="Últimos Tonkis"
+        description="Lo que te han acreditado recientemente."
+      >
         {loading ? (
-          <p className="mt-4 text-sm text-tonki-text-muted">Cargando…</p>
+          <ul className="space-y-3" aria-busy="true">
+            {[0, 1, 2].map((key) => (
+              <li
+                key={key}
+                className="h-12 animate-pulse rounded-2xl bg-tonki-surface-hover/50"
+              />
+            ))}
+          </ul>
         ) : error ? (
-          <p role="alert" className="mt-4 text-sm text-tonki-danger">
-            {error}
-          </p>
+          <Notice tone="error">{error}</Notice>
         ) : recent.length === 0 ? (
-          <p className="mt-4 text-sm text-tonki-text-muted">
-            Aún no tienes consumos acreditados.
-          </p>
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-tonki-border-strong px-4 py-8 text-center">
+            <HexBadge>
+              <IconHex className="h-5 w-5" />
+            </HexBadge>
+            <p className="mt-3 text-sm font-semibold text-tonki-text">
+              Aún no tienes consumos acreditados
+            </p>
+            <p className="mt-1 text-xs text-tonki-text-muted">
+              Escanea el QR en tu próximo consumo para ganar Tonkis.
+            </p>
+          </div>
         ) : (
-          <ul className="mt-4 divide-y divide-tonki-border">
+          <ul className="-mx-2 space-y-1">
             {recent.map((item) => (
               <li
                 key={item.charge_id}
-                className="flex items-center justify-between gap-3 py-3"
+                className="flex items-center gap-3 rounded-2xl px-2 py-2.5 transition-colors hover:bg-tonki-surface-hover/50"
               >
-                <span className="min-w-0 truncate text-sm font-medium text-tonki-text">
-                  {item.establishment_name}
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tonki-chrome text-sm font-bold text-tonki-accent">
+                  {initialOf(item.establishment_name)}
                 </span>
-                <span className="shrink-0 text-sm font-bold text-tonki-text">
-                  {formatPoints(item.points)} Tonkis
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-tonki-text">
+                    {item.establishment_name}
+                  </span>
+                  <span className="block text-xs text-tonki-text-muted">
+                    {formatDate(item.credited_at)}
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full bg-tonki-accent/25 px-2.5 py-1 text-sm font-bold tabular-nums text-tonki-text">
+                  +{formatPoints(item.points)}
                 </span>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
     </div>
   );
+}
+
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("es-MX", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }

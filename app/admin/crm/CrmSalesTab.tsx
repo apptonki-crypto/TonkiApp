@@ -102,9 +102,13 @@ export function CrmSalesTab({
                   </span>
                 </div>
 
-                {sale.claimed_by_name ? (
+                {sale.claimed_by_name || sale.created_by_staff_name ? (
                   <p className="mt-2 text-sm text-tonki-text-secondary">
-                    Cliente: {sale.claimed_by_name}
+                    {sale.claimed_by_name ? `Cliente: ${sale.claimed_by_name}` : null}
+                    {sale.claimed_by_name && sale.created_by_staff_name ? " · " : null}
+                    {sale.created_by_staff_name
+                      ? `Mesero: ${sale.created_by_staff_name}`
+                      : null}
                   </p>
                 ) : null}
 

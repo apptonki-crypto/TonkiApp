@@ -1,19 +1,14 @@
 import { PrismaClient } from "../src/generated/prisma/client";
-import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
-const TEST_LOGIN_USERS = [
+const SEED_USERS = [
   {
-    username: "testuser",
-    password: "User12345",
     wallet_address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
     name: "Test User",
     type: "user",
   },
   {
-    username: "testadmin",
-    password: "Admin12345",
     wallet_address: "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBRD",
     name: "Test Admin",
     type: "admin",
@@ -21,7 +16,7 @@ const TEST_LOGIN_USERS = [
 ];
 
 async function main() {
-  for (const testUser of TEST_LOGIN_USERS) {
+  for (const testUser of SEED_USERS) {
     let user = await prisma.user.findFirst({
       where: { wallet_address: testUser.wallet_address },
     });
@@ -36,28 +31,13 @@ async function main() {
         },
       });
     }
-
-    const passwordHash = await bcrypt.hash(testUser.password, 10);
-    await prisma.credential.upsert({
-      where: { username: testUser.username },
-      update: {
-        user_id: user.user_id,
-        password_hash: passwordHash,
-      },
-      create: {
-        user_id: user.user_id,
-        username: testUser.username,
-        password_hash: passwordHash,
-      },
-    });
   }
 
-  const adminCred = await prisma.credential.findUnique({
-    where: { username: "testadmin" },
-    include: { user: true },
+  const admin = await prisma.user.findFirst({
+    where: { wallet_address: SEED_USERS[1].wallet_address },
   });
-  if (adminCred?.user) {
-    const adminId = adminCred.user.user_id;
+  if (admin) {
+    const adminId = admin.user_id;
     const existing = await prisma.post.count({ where: { author_id: adminId } });
     if (existing === 0) {
       await prisma.post.create({
@@ -100,8 +80,8 @@ async function main() {
     }
   }
 
-  for (const u of TEST_LOGIN_USERS) {
-    console.log(`  • ${u.username} / ${u.password} (${u.type})`);
+  for (const u of SEED_USERS) {
+    console.log(`  • ${u.name} (${u.type})`);
   }
 }
 

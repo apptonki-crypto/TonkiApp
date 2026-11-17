@@ -9,6 +9,7 @@ import {
   toPublicDynamicSummary,
   type AuthorDynamicSummary,
   type DynamicRecord,
+  type PublicDynamicSummary,
 } from "src/lib/posts/dynamics";
 
 const publicDynamicSelect = {
@@ -25,6 +26,9 @@ const publicDynamicSelect = {
   ends_at: true,
   closed_at: true,
   created_at: true,
+  chain_status: true,
+  contract_id: true,
+  deploy_tx_hash: true,
 } as const;
 
 type PublicDynamicRow = {
@@ -41,6 +45,9 @@ type PublicDynamicRow = {
   ends_at: Date | null;
   closed_at: Date | null;
   created_at: Date;
+  chain_status?: string;
+  contract_id?: string | null;
+  deploy_tx_hash?: string | null;
 };
 
 function toRecord(row: PublicDynamicRow): DynamicRecord | null {
@@ -59,6 +66,9 @@ function toRecord(row: PublicDynamicRow): DynamicRecord | null {
     ends_at: row.ends_at,
     closed_at: row.closed_at,
     token: null,
+    chain_status: row.chain_status ?? "legacy",
+    contract_id: row.contract_id ?? null,
+    deploy_tx_hash: row.deploy_tx_hash ?? null,
   };
 }
 

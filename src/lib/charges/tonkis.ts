@@ -44,7 +44,7 @@ export function rewardDescriptionForCharge(
   percent: number,
   amountLabel: string
 ): string {
-  return `Cashback ${percent}% sobre $${amountLabel} de referencia. No es un pago.`.slice(
+  return `Cashback ${percent}% sobre $${amountLabel} pagados.`.slice(
     0,
     191
   );

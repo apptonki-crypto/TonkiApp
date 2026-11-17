@@ -1,9 +1,18 @@
 import prisma from "src/lib/db";
 import { mapEstablishmentProfile } from "src/lib/establishment/mapProfile";
+import { listVisitEvents, mergeVisitEvents } from "src/lib/establishment/presentation";
 import type {
   EstablishmentProfile,
+  EstablishmentVisit,
   PublicEstablishmentCard,
 } from "src/lib/establishment/types";
+
+/** Lugares visitados: consumos acreditados y escaneos del QR de presentación. */
+export async function listVisitedEstablishments(
+  userId: string
+): Promise<EstablishmentVisit[]> {
+  return mergeVisitEvents(await listVisitEvents(userId));
+}
 
 const publicSelect = {
   establishment_id: true,

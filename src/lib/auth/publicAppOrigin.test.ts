@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   getPublicAppOrigin,
   isUnusableHost,
-  redirectToAppPath,
 } from "src/lib/auth/publicAppOrigin";
 
 function req(url: string, headers: Record<string, string> = {}): Request {
@@ -77,13 +76,3 @@ describe("isUnusableHost", () => {
   });
 });
 
-describe("redirectToAppPath", () => {
-  it("emits a relative Location so the browser stays on the public host", () => {
-    const res = redirectToAppPath("/login?error=google_oauth_invalid_callback");
-    expect(res.status).toBe(307);
-    expect(res.headers.get("Location")).toBe(
-      "/login?error=google_oauth_invalid_callback"
-    );
-    expect(res.headers.get("Location")).not.toMatch(/0\.0\.0\.0/);
-  });
-});

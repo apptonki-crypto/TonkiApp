@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { hasOpenHours } from "./hours";
+
 function optionalText(max: number, tooLong: string) {
   return z
     .string()
@@ -57,3 +59,31 @@ export const establishmentUpsertSchema = z.object({
 });
 
 export type EstablishmentUpsertInput = z.infer<typeof establishmentUpsertSchema>;
+
+/**
+ * Alta obligatoria de la empresa (una sola vez): los datos que pinta la ficha
+ * pública. Logo, sitio web y ubicación siguen siendo opcionales.
+ */
+export const establishmentOnboardingSchema = establishmentUpsertSchema.superRefine(
+  (data, ctx) => {
+    const required: Array<[keyof EstablishmentUpsertInput, string]> = [
+      ["category", "La categoría es obligatoria"],
+      ["description", "La descripción es obligatoria"],
+      ["address", "La dirección es obligatoria"],
+      ["phone", "El teléfono es obligatorio"],
+    ];
+    for (const [key, message] of required) {
+      if (!data[key]) {
+        ctx.addIssue({ code: "custom", message, path: [key] });
+      }
+    }
+    if (!hasOpenHours(data.hours)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Indica al menos un día de horario abierto",
+        path: ["hours"],
+      });
+    }
+  }
+);
+

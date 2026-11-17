@@ -11,6 +11,8 @@ const ADMIN_NAV = [
   { href: "/admin/dashboard", label: "Contenido" },
   { href: "/admin/crm", label: "CRM ventas" },
   { href: "/admin/cobrar", label: "Cobrar" },
+  { href: "/admin/presentacion", label: "QR del local" },
+  { href: "/admin/meseros", label: "Meseros" },
 ] as const;
 
 /**
@@ -20,7 +22,7 @@ export function AdminHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-tonki-chrome-border bg-tonki-chrome backdrop-blur-md">
+    <header className="sticky top-0 z-40 print:hidden border-b border-tonki-chrome-border bg-tonki-chrome backdrop-blur-md">
       <div className="mx-auto flex w-full flex-col gap-2 px-4 py-3 sm:px-6">
         <div className="flex w-full items-center justify-between gap-4">
           <Link

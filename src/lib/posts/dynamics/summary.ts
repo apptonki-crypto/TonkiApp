@@ -1,3 +1,5 @@
+import { isChainRequiredButUnavailable } from "src/lib/posts/chain/authority";
+import { contractExplorerUrl } from "src/lib/posts/chain/config";
 import type { DynamicPhase, DynamicStatus } from "src/lib/posts/dynamics/constants";
 import {
   closeTransition,
@@ -24,11 +26,18 @@ export type PublicDynamicSummary = {
   min_ticket: string | null;
   product_ids: string[];
   viewer_participated: boolean;
+  /** legacy | pending | active | failed. Pending/failed mean the contract is not live. */
+  chain_status: string;
+  /** True when the contract is required but not live yet, so nobody can participate. */
+  awaiting_chain: boolean;
 };
 
-/** Public summary plus the promo code. Only for the post author. */
+/** Public summary plus the promo code and contract link. Only for the post author. */
 export type AuthorDynamicSummary = PublicDynamicSummary & {
   code?: string;
+  contract_id?: string;
+  contract_url?: string;
+  deploy_tx_hash?: string;
 };
 
 function iso(value: Date | null): string | null {
@@ -69,6 +78,8 @@ export function toPublicDynamicSummary(
     min_ticket: pub.min_ticket,
     product_ids: pub.product_ids,
     viewer_participated: options?.viewerParticipated ?? false,
+    chain_status: dynamic.chain_status ?? "legacy",
+    awaiting_chain: isChainRequiredButUnavailable(dynamic),
   };
 }
 
@@ -80,9 +91,15 @@ export function toAuthorDynamicSummary(
   dynamic: DynamicRecord,
   options?: { viewerParticipated?: boolean; now?: Date }
 ): AuthorDynamicSummary {
-  const summary = toPublicDynamicSummary(dynamic, options);
-  if (dynamic.kind !== "promo_code") return summary;
-  const code = readPromoCode(dynamic.config);
-  if (!code) return summary;
-  return { ...summary, code };
+  const summary: AuthorDynamicSummary = toPublicDynamicSummary(dynamic, options);
+  if (dynamic.kind === "promo_code") {
+    const code = readPromoCode(dynamic.config);
+    if (code) summary.code = code;
+  }
+  if (dynamic.contract_id) {
+    summary.contract_id = dynamic.contract_id;
+    summary.contract_url = contractExplorerUrl(dynamic.contract_id);
+    if (dynamic.deploy_tx_hash) summary.deploy_tx_hash = dynamic.deploy_tx_hash;
+  }
+  return summary;
 }

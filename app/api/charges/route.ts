@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     if (!created.ok) return apiError(created.error, created.status);
 
     return apiSuccess({
-      message: "Código listo. El cliente recibirá Tonkis al confirmarlo.",
+      message: "Código listo. El cliente recibirá Tonkis cuando su pago se confirme.",
       charge: created.charge,
     });
   } catch (err) {

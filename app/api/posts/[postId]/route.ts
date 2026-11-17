@@ -29,6 +29,7 @@ import {
   type ParsedDynamicsPatch,
 } from "src/lib/posts/dynamicRequests";
 import { loadPublicDynamicsForPost } from "src/lib/posts/loadPublicDynamics";
+import { scheduleChainWork } from "src/lib/posts/chain/schedule";
 
 const postIdParamSchema = z.string().uuid();
 
@@ -371,6 +372,7 @@ export async function PATCH(
 
     if (dynamicsChange && dynamicPatch) {
       await applyDynamicPatch({ postId: pid.data, patch: dynamicPatch });
+      scheduleChainWork();
     }
 
     if (uniqueRemovedIds.length > 0) {

@@ -101,7 +101,10 @@ function PollarLogin() {
           setBusy(null);
           return;
         }
-        const target = sanitizeAuthReturnPath(from, data.role);
+        // El alta de empresa es obligatoria: `from` no puede saltarla.
+        const target = data.requiresBusinessProfile
+          ? null
+          : sanitizeAuthReturnPath(from, data.role);
         router.push(target ?? data.redirectTo);
         router.refresh();
       } catch {

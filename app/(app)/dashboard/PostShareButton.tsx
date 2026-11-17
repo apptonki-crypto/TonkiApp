@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react";
 
 import { readJsonSafely } from "src/lib/api/readJsonSafely";
-import { isProceduralPostId } from "src/lib/posts/proceduralFeed";
 
 type PostShareButtonProps = {
   postId: string;
@@ -72,7 +71,6 @@ export function PostShareButton({
 }: PostShareButtonProps) {
   const [hint, setHint] = useState<string | null>(null);
   const [shareCount, setShareCount] = useState(initialShareCount);
-  const trackShares = !isProceduralPostId(postId);
 
   const share = useCallback(async () => {
     const shareUrl =
@@ -110,11 +108,11 @@ export function PostShareButton({
       }
     }
 
-    if (shared && trackShares) {
+    if (shared) {
       const next = await recordShare(postId);
       if (next !== null) setShareCount(next);
     }
-  }, [postId, title, trackShares]);
+  }, [postId, title]);
 
   return (
     <div className="flex items-center gap-2">

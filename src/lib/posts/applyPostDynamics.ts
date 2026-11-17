@@ -1,6 +1,14 @@
+import { randomUUID } from "crypto";
+
 import { Prisma } from "src/generated/prisma/client";
 
 import prisma from "src/lib/db";
+import {
+  chainCreateFields,
+  enqueueDeploy,
+  enqueueForceClose,
+  planChainOnCreate,
+} from "src/lib/posts/chain/lifecycle";
 import {
   MAX_POST_DYNAMICS,
   isDynamicKind,
@@ -87,14 +95,34 @@ export async function createPostDynamics(
     assertWritableEstablishment(input);
     const token = input.kind === "qr" ? createDynamicToken() : undefined;
     const data = toPostDynamicWriteData(input, token ? { token } : undefined);
+    const dynamicId = randomUUID();
+    const plan = await planChainOnCreate(
+      { dynamic_id: dynamicId, ...chainSourceOf(data) },
+      now
+    );
     await tx.postDynamic.create({
       data: {
+        dynamic_id: dynamicId,
         post_id: postId,
         ...data,
+        ...chainCreateFields(plan),
         created_at: new Date(now.getTime() + index),
       },
     });
+    await enqueueDeploy(tx, dynamicId, plan);
   }
+}
+
+function chainSourceOf(data: ReturnType<typeof toPostDynamicWriteData>) {
+  return {
+    kind: data.kind,
+    config: data.config,
+    goal_count: data.goal_count,
+    starts_at: data.starts_at,
+    ends_at: data.ends_at,
+    establishment_id: data.establishment_id,
+    token: data.token,
+  };
 }
 
 async function lockDynamic(
@@ -149,6 +177,12 @@ export async function applyDynamicPatch(input: {
         if (count > 0) {
           throw new PostDynamicRequestError(409, DYNAMIC_REMOVE_BLOCKED_MESSAGE);
         }
+        // The contract cannot be deleted from the ledger: close it before the row goes away.
+        const doomed = await tx.postDynamic.findUnique({
+          where: { dynamic_id: op.dynamic_id },
+          select: { contract_id: true },
+        });
+        await enqueueForceClose(tx, op.dynamic_id, doomed?.contract_id);
         await tx.postDynamic.delete({ where: { dynamic_id: op.dynamic_id } });
         continue;
       }
@@ -160,7 +194,12 @@ export async function applyDynamicPatch(input: {
         }
         const row = await tx.postDynamic.findUnique({
           where: { dynamic_id: op.dynamic_id },
-          select: { kind: true, status: true, token: true },
+          select: {
+            kind: true,
+            status: true,
+            token: true,
+            contract_id: true,
+          },
         });
         if (!row || !isDynamicKind(row.kind) || !isDynamicStatus(row.status)) {
           throw new PostDynamicRequestError(400, DYNAMIC_NOT_FOUND_MESSAGE);
@@ -182,6 +221,16 @@ export async function applyDynamicPatch(input: {
           op.input,
           token ? { token } : undefined
         );
+        // A contract is immutable: new rules mean a new contract. The old one is closed
+        // and the dynamic goes back to `pending` until the new one is deployed.
+        const plan = await planChainOnCreate(
+          {
+            dynamic_id: op.dynamic_id,
+            ...chainSourceOf(data),
+          },
+          now
+        );
+        const hadContract = Boolean(row.contract_id);
         await tx.postDynamic.update({
           where: { dynamic_id: op.dynamic_id },
           data: {
@@ -195,8 +244,19 @@ export async function applyDynamicPatch(input: {
             establishment_id: data.establishment_id,
             token: data.token,
             closed_at: null,
+            ...(plan.chain || hadContract
+              ? {
+                  contract_id: null,
+                  deploy_tx_hash: null,
+                  last_synced_ledger: null,
+                  chain_status: plan.chain ? plan.chain_status : "legacy",
+                  config_hash: plan.chain ? plan.config_hash : null,
+                }
+              : {}),
           },
         });
+        await enqueueForceClose(tx, op.dynamic_id, row.contract_id);
+        await enqueueDeploy(tx, op.dynamic_id, plan);
         continue;
       }
 
@@ -217,20 +277,28 @@ export async function applyDynamicPatch(input: {
           op.input,
           token ? { token } : undefined
         );
+        const dynamicId = randomUUID();
+        const plan = await planChainOnCreate(
+          { dynamic_id: dynamicId, ...chainSourceOf(data) },
+          now
+        );
         await tx.postDynamic.create({
           data: {
+            dynamic_id: dynamicId,
             post_id: input.postId,
             ...data,
+            ...chainCreateFields(plan),
             created_at: createdAt,
           },
         });
+        await enqueueDeploy(tx, dynamicId, plan);
         continue;
       }
 
       if (op.type === "close") {
         const locked = await lockDynamic(tx, input.postId, op.dynamic_id);
         if (!locked) continue;
-        await tx.postDynamic.updateMany({
+        const closed = await tx.postDynamic.updateMany({
           where: {
             dynamic_id: op.dynamic_id,
             post_id: input.postId,
@@ -238,6 +306,13 @@ export async function applyDynamicPatch(input: {
           },
           data: { status: "exhausted", closed_at: now },
         });
+        if (closed.count === 1) {
+          const row = await tx.postDynamic.findUnique({
+            where: { dynamic_id: op.dynamic_id },
+            select: { contract_id: true },
+          });
+          await enqueueForceClose(tx, op.dynamic_id, row?.contract_id);
+        }
       }
     }
   });

@@ -120,7 +120,7 @@ export function AccountSlideOverGroup({ children }: AccountSlideOverGroupProps) 
 
   const display =
     payload?.user != null
-      ? (payload.user.username ??
+      ? (payload.user.name ??
         payload.user.email ??
         (payload.user.id ? `${payload.user.id.slice(0, 8)}…` : "—"))
       : null;

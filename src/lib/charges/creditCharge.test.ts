@@ -31,6 +31,8 @@ function pendingCharge(overrides: Record<string, unknown> = {}) {
     expires_at: new Date(Date.now() + 60_000),
     status: "pending",
     claimed_by_user_id: null,
+    pay_status: "confirmed",
+    pay_payer_user_id: "user-1",
     establishment: { name: "El Campestre" },
     ...overrides,
   };
@@ -75,6 +77,44 @@ describe("creditChargeForUser", () => {
     expect(applyConsumptionForCreditedCharge).not.toHaveBeenCalled();
   });
 
+  it("does not credit while the payment is unconfirmed", async () => {
+    tx.charge.findUnique.mockResolvedValue(
+      pendingCharge({ pay_status: "awaiting" })
+    );
+
+    const result = await creditChargeForUser(token, "user-1");
+
+    expect(result).toMatchObject({ ok: false, status: 402 });
+    expect(tx.charge.updateMany).not.toHaveBeenCalled();
+    expect(tx.reward.create).not.toHaveBeenCalled();
+    expect(applyConsumptionForCreditedCharge).not.toHaveBeenCalled();
+  });
+
+  it("does not credit a customer who did not pay the charge", async () => {
+    tx.charge.findUnique.mockResolvedValue(
+      pendingCharge({ pay_payer_user_id: "user-2" })
+    );
+
+    const result = await creditChargeForUser(token, "user-1");
+
+    expect(result).toMatchObject({ ok: false, status: 402 });
+    expect(tx.reward.create).not.toHaveBeenCalled();
+  });
+
+  it("credits a confirmed payment even after the code expired", async () => {
+    tx.charge.findUnique.mockResolvedValue(
+      pendingCharge({ expires_at: new Date(Date.now() - 60_000) })
+    );
+    tx.charge.updateMany.mockResolvedValue({ count: 1 });
+    tx.reward.create.mockResolvedValue({ reward_id: "reward-1" });
+    tx.reward.aggregate.mockResolvedValue({ _sum: { points: 10 } });
+
+    const result = await creditChargeForUser(token, "user-1");
+
+    expect(result).toMatchObject({ ok: true, points: 10 });
+    expect(applyConsumptionForCreditedCharge).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects zero Tonkis without marking the token used", async () => {
     tx.charge.findUnique.mockResolvedValue(
       pendingCharge({ amount: new Prisma.Decimal("1.00"), cashback_percent: 1 })
@@ -110,7 +150,8 @@ describe("creditChargeForUser", () => {
       where: {
         charge_id: "charge-1",
         status: "pending",
-        expires_at: { gt: expect.any(Date) },
+        pay_status: "confirmed",
+        pay_payer_user_id: "user-1",
       },
       data: {
         status: "credited",
@@ -122,7 +163,7 @@ describe("creditChargeForUser", () => {
         user_id: "user-1",
         establishment_id: "est-1",
         points: 10,
-        description: expect.stringContaining("No es un pago"),
+        description: expect.stringContaining("pagados"),
       }),
     });
     expect(tx.charge.update).toHaveBeenCalledWith({

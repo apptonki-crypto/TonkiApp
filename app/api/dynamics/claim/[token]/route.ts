@@ -2,7 +2,11 @@ import prisma from "src/lib/db";
 import { apiError, apiSuccess } from "src/lib/api/response";
 import { requireActiveClientSession } from "src/lib/api/requireActiveClient";
 import { participateInDynamic } from "src/lib/posts/dynamics";
+import { scheduleChainWork } from "src/lib/posts/chain/schedule";
 import { isDynamicClaimToken } from "src/lib/posts/dynamicRequests";
+
+/** A confirmed Stellar transaction can take several seconds. */
+export const maxDuration = 60;
 
 export async function POST(
   _req: Request,
@@ -29,6 +33,8 @@ export async function POST(
       source: "qr",
     });
     if (!result.ok) return apiError(result.error, result.status);
+
+    scheduleChainWork();
 
     return apiSuccess({
       message: "Participación registrada.",

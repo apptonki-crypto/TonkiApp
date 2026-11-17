@@ -11,7 +11,7 @@ import {
 } from "src/lib/establishment/hours";
 
 const TIME =
-  "rounded-xl border border-tonki-border bg-tonki-surface px-3 py-2 text-sm text-tonki-text outline-none focus:border-tonki-accent disabled:opacity-40";
+  "h-10 w-full min-w-0 rounded-lg border border-tonki-border bg-white px-2.5 text-sm tabular-nums text-tonki-text outline-none transition focus:border-tonki-accent focus:ring-4 focus:ring-tonki-accent/25 sm:w-28";
 
 type Props = {
   value: string;
@@ -42,48 +42,70 @@ export function BusinessHoursField({ value, onChange }: Props) {
   }
 
   return (
-    <fieldset className="space-y-3 rounded-xl border border-tonki-border p-4">
-      <legend className="px-1 text-sm font-medium text-tonki-text">
-        Horario
-      </legend>
+    <fieldset className="space-y-3">
+      <legend className="sr-only">Horario</legend>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-tonki-text-faint">
-          Marca cada día como cerrado o elige la hora de apertura y cierre.
+          Activa los días que abres y ajusta la hora de apertura y cierre.
         </p>
         <button
           type="button"
           onClick={copyMonday}
-          className="rounded-lg border border-tonki-border px-3 py-1.5 text-xs font-semibold text-tonki-accent hover:bg-tonki-elevated"
+          className="rounded-full border border-tonki-border-strong bg-white/60 px-3 py-1.5 text-xs font-semibold text-tonki-text transition hover:border-tonki-accent hover:bg-tonki-accent/20"
         >
           Copiar lunes a todos
         </button>
       </div>
-      <ul className="space-y-2">
+      <ul className="overflow-hidden rounded-2xl border border-tonki-border bg-white/50">
         {WEEKDAY_KEYS.map((key) => {
           const day = week[key];
+          const open = !day.closed;
           return (
             <li
               key={key}
-              className="grid grid-cols-1 items-center gap-2 rounded-xl bg-tonki-canvas px-3 py-2 sm:grid-cols-[7.5rem_auto_1fr]"
+              className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 border-b border-tonki-border/70 px-4 py-3 last:border-b-0 sm:grid-cols-[8rem_7.5rem_1fr]"
             >
               <span className="text-sm font-semibold text-tonki-text">
                 {weekdayLabel(key)}
               </span>
-              <label className="flex items-center gap-2 text-sm text-tonki-text-secondary">
-                <input
-                  type="checkbox"
-                  checked={day.closed}
-                  onChange={(event) =>
-                    setDay(key, {
-                      closed: event.target.checked,
-                      open: day.open || DEFAULT_OPEN,
-                      close: day.close || DEFAULT_CLOSE,
-                    })
-                  }
-                />
-                Cerrado
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={open}
+                aria-label={`${weekdayLabel(key)} abierto`}
+                onClick={() =>
+                  setDay(key, {
+                    closed: open,
+                    open: day.open || DEFAULT_OPEN,
+                    close: day.close || DEFAULT_CLOSE,
+                  })
+                }
+                className="group flex items-center gap-2 justify-self-end sm:justify-self-start"
+              >
+                <span
+                  className={`relative h-6 w-11 rounded-full transition-colors ${
+                    open ? "bg-tonki-accent" : "bg-tonki-border-strong/70"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      open ? "translate-x-[22px]" : "translate-x-0.5"
+                    }`}
+                  />
+                </span>
+                <span
+                  className={`w-14 text-left text-xs font-semibold ${
+                    open ? "text-tonki-text" : "text-tonki-text-faint"
+                  }`}
+                >
+                  {open ? "Abierto" : "Cerrado"}
+                </span>
+              </button>
+              <div
+                className={`col-span-2 flex items-center gap-2 transition-opacity sm:col-span-1 ${
+                  open ? "" : "pointer-events-none opacity-35"
+                }`}
+              >
                 <input
                   aria-label={`Apertura ${weekdayLabel(key)}`}
                   type="time"

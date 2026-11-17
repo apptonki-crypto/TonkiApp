@@ -46,6 +46,11 @@ function useNow(enabled: boolean): number {
 
 function closedReason(dynamic: NormalizedDynamic): string | null {
   if (dynamic.viewer_participated) return "Ya participaste.";
+  if (dynamic.awaiting_chain) {
+    return dynamic.chain_status === "failed"
+      ? "Esta dinámica no pudo activarse."
+      : "Activando la dinámica en Stellar…";
+  }
   if (dynamic.phase === "upcoming") return "Todavía no empieza.";
   if (dynamic.phase === "exhausted") return "Esta dinámica ya se agotó.";
   if (dynamic.phase === "expired") return "Esta dinámica ya venció.";
@@ -185,7 +190,7 @@ export function PostDynamicsPanel({
                     onClick={() => void participate(dynamic, { source: "going" })}
                     className="rounded-full bg-tonki-accent px-4 py-1.5 text-sm font-bold text-tonki-accent-fg transition-colors hover:bg-tonki-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {pending ? "Enviando…" : "Voy"}
+                    {pending ? (dynamic.chain_status === "active" ? "Registrando…" : "Enviando…") : "Voy"}
                   </button>
                   {reason && !notes[dynamic.dynamic_id] ? (
                     <p className="mt-1 text-xs text-tonki-text-muted">{reason}</p>
@@ -241,7 +246,7 @@ export function PostDynamicsPanel({
                       }}
                       className="rounded-full bg-tonki-accent px-4 py-1.5 text-sm font-bold text-tonki-accent-fg transition-colors hover:bg-tonki-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {pending ? "Canjeando…" : "Canjear"}
+                      {pending ? (dynamic.chain_status === "active" ? "Registrando…" : "Canjeando…") : "Canjear"}
                     </button>
                   </div>
                   {reason && !notes[dynamic.dynamic_id] ? (

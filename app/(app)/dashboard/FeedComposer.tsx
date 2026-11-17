@@ -50,7 +50,7 @@ export function FeedComposer({ onPublished }: FeedComposerProps) {
   }
 
   return (
-    <div className="border-b border-tonki-border bg-tonki-surface px-4 py-4 sm:px-5">
+    <div className="rounded-3xl border border-tonki-border bg-white px-4 py-4 shadow-[0_10px_30px_-22px_rgba(45,33,13,0.45)] sm:px-5">
       <PostComposerForm
         className="flex flex-col gap-4"
         onPublished={handlePublished}

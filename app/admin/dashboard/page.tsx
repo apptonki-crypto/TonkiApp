@@ -59,7 +59,7 @@ export default function AdminDashboardPage() {
       }
 
       const label =
-        data.user.username ??
+        data.user.name ??
         data.user.email ??
         (data.user.id ? `${data.user.id.slice(0, 8)}…` : "");
 

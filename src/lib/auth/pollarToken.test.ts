@@ -1,41 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inspectPollarServerEnv } from "src/lib/auth/pollarServer";
 import { parseVerifiedPollarToken } from "src/lib/auth/verifyPollarToken";
-
-describe("inspectPollarServerEnv", () => {
-  it("accepts matching testnet key prefixes", () => {
-    expect(
-      inspectPollarServerEnv({
-        publishableKey: "pub_testnet_abc",
-        secretKey: "sec_testnet_abc",
-        network: "testnet",
-      }).ok
-    ).toBe(true);
-  });
-
-  it("rejects a secret published as a public env var", () => {
-    const result = inspectPollarServerEnv({
-      publishableKey: "pub_testnet_abc",
-      secretKey: "sec_testnet_abc",
-      network: "testnet",
-      secretExposedAsPublic: true,
-    });
-    expect(result.ok).toBe(false);
-    expect(result.issues).toContain("secret_key_exposed");
-  });
-
-  it("rejects missing keys and mainnet prefixes on a testnet app", () => {
-    const result = inspectPollarServerEnv({
-      publishableKey: "pub_mainnet_abc",
-      secretKey: "",
-      network: "testnet",
-    });
-    expect(result.issues).toEqual([
-      "publishable_key_prefix",
-      "missing_secret_key",
-    ]);
-  });
-});
 
 describe("parseVerifiedPollarToken", () => {
   const wallet = `${"G"}${"A".repeat(55)}`;

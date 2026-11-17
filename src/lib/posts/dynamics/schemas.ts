@@ -50,17 +50,6 @@ function normalizeMoney(value: string | number): string | null {
   return decimal.toFixed(2);
 }
 
-function moneyField(invalid: string) {
-  return z.union([z.string(), z.number()]).transform((value, ctx) => {
-    const normalized = normalizeMoney(value);
-    if (!normalized) {
-      ctx.addIssue({ code: "custom", message: invalid });
-      return z.NEVER;
-    }
-    return normalized;
-  });
-}
-
 function optionalMoney(invalid: string) {
   return z
     .union([z.string(), z.number(), z.null()])

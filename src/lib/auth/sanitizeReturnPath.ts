@@ -1,4 +1,9 @@
 import { isChargeToken } from "src/lib/charges/constants";
+import {
+  isStaffInviteToken,
+  STAFF_HOME_PATH,
+  STAFF_JOIN_PATH_PREFIX,
+} from "src/lib/staff/constants";
 import type { UserRole } from "src/types/auth";
 
 /**
@@ -27,6 +32,17 @@ export function sanitizeAuthReturnPath(
   if (/[\x00-\x1f]/.test(pathOnly)) return null;
   if (!/^\/[-\w./]*$/.test(pathOnly)) return null;
 
+  // El enlace de invitación lo abre un cliente que todavía no es mesero.
+  if (pathOnly.startsWith(STAFF_JOIN_PATH_PREFIX)) {
+    const token = pathOnly.slice(STAFF_JOIN_PATH_PREFIX.length);
+    return isStaffInviteToken(token) ? pathOnly : null;
+  }
+  if (pathOnly === STAFF_HOME_PATH || pathOnly.startsWith(`${STAFF_HOME_PATH}/`)) {
+    return role === "staff" ? pathOnly : null;
+  }
+  // Un mesero solo usa su vista; el resto cae a su inicio por defecto.
+  if (role === "staff") return null;
+
   if (pathOnly.startsWith("/admin")) {
     return role === "admin" ? pathOnly : null;
   }
@@ -41,7 +57,8 @@ export function sanitizeAuthReturnPath(
   if (
     pathOnly.startsWith("/dashboard") ||
     pathOnly.startsWith("/account") ||
-    pathOnly.startsWith("/onboarding")
+    pathOnly === "/onboarding/empresa" ||
+    pathOnly.startsWith("/onboarding/empresa/")
   ) {
     return pathOnly;
   }

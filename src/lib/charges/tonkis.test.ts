@@ -41,8 +41,8 @@ describe("centsFromPesosInput", () => {
 });
 
 describe("rewardDescriptionForCharge", () => {
-  it("states the cashback is not a payment", () => {
-    expect(rewardDescriptionForCharge(5, "150.00")).toContain("No es un pago");
+  it("states the cashback is on an amount that was paid", () => {
+    expect(rewardDescriptionForCharge(5, "150.00")).toContain("pagados");
     expect(rewardDescriptionForCharge(5, "150.00").length).toBeLessThanOrEqual(191);
   });
 });

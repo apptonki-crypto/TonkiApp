@@ -4,6 +4,6 @@ import type { UserRole } from "src/types/auth";
 export function normalizeUserRole(
   raw: string | null | undefined
 ): UserRole | null {
-  if (raw === "admin" || raw === "user") return raw;
+  if (raw === "admin" || raw === "user" || raw === "staff") return raw;
   return null;
 }

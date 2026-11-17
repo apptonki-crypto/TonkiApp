@@ -35,6 +35,34 @@ describe("claimAvailability", () => {
     ).toBe("Este código ya acreditó Tonkis.");
   });
 
+  it("blocks a customer when another one already started paying", () => {
+    expect(
+      claimAvailability({ ...base, payerUserId: "user-2" }).block_reason
+    ).toBe("Otro cliente ya está pagando este cobro.");
+    expect(
+      claimAvailability({ ...base, payerUserId: "user-1" }).can_claim
+    ).toBe(true);
+  });
+
+  it("blocks payment when the business has no wallet", () => {
+    expect(
+      claimAvailability({ ...base, businessWalletReady: false }).can_claim
+    ).toBe(false);
+  });
+
+  it("lets the payer finish crediting after the code expired", () => {
+    const paid = {
+      ...base,
+      expired: true,
+      payerUserId: "user-1",
+      payStatus: "confirmed",
+    };
+    expect(claimAvailability(paid).can_claim).toBe(true);
+    expect(
+      claimAvailability({ ...paid, payStatus: "awaiting" }).can_claim
+    ).toBe(false);
+  });
+
   it("blocks a result of zero Tonkis", () => {
     expect(claimAvailability({ ...base, points: 0 }).block_reason).toBe(
       "Este consumo no alcanza para acreditar Tonkis."

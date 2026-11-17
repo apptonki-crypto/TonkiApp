@@ -14,6 +14,7 @@ function sale(overrides: Partial<CrmSale> = {}): CrmSale {
     created_at: "2026-10-26T05:30:00.000Z",
     updated_at: "2026-10-26T05:30:00.000Z",
     claimed_by_name: null,
+    created_by_staff_name: null,
     line_items: [],
     ...overrides,
   };
@@ -357,6 +358,7 @@ describe("CRM CSV rows", () => {
         status: "credited",
         created_at: "2026-10-26T05:30:00.000Z",
         claimed_by_name: "Ana",
+        created_by_staff_name: "Luis",
         line_items: [
           {
             line_item_id: "line-1",
@@ -389,6 +391,7 @@ describe("CRM CSV rows", () => {
       "id de venta",
       "estado",
       "cliente",
+      "generó",
       "monto de la venta",
       "producto",
       "cantidad",
@@ -403,6 +406,7 @@ describe("CRM CSV rows", () => {
       "charge-1",
       "Confirmada",
       "Ana",
+      "Luis",
       "110.00",
       'Café "oro"',
       "2",
@@ -416,6 +420,7 @@ describe("CRM CSV rows", () => {
       "charge-1",
       "Confirmada",
       "Ana",
+      "Luis",
       "110.00",
       "Pan, dulce",
       "1",
@@ -429,6 +434,7 @@ describe("CRM CSV rows", () => {
       "charge-2",
       "Pendiente",
       "Niño, Pérez",
+      "Negocio",
       "1250.50",
       "",
       "",
