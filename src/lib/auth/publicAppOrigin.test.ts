@@ -5,6 +5,10 @@ import {
   isUnusableHost,
 } from "src/lib/auth/publicAppOrigin";
 
+function setNodeEnv(value: string | undefined) {
+  (process.env as Record<string, string | undefined>).NODE_ENV = value;
+}
+
 function req(url: string, headers: Record<string, string> = {}): Request {
   return new Request(url, { headers });
 }
@@ -19,7 +23,7 @@ describe("getPublicAppOrigin", () => {
     else process.env.APP_URL = prevAppUrl;
     if (prevPublicAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
     else process.env.NEXT_PUBLIC_APP_URL = prevPublicAppUrl;
-    process.env.NODE_ENV = prevNodeEnv;
+    setNodeEnv(prevNodeEnv);
   });
 
   it("falls back to tonki.io when Host is the 0.0.0.0 bind address", () => {
@@ -58,7 +62,7 @@ describe("getPublicAppOrigin", () => {
   });
 
   it("prefers localhost in development even when APP_URL is production", () => {
-    process.env.NODE_ENV = "development";
+    setNodeEnv("development");
     process.env.APP_URL = "https://tonki.io";
     expect(
       getPublicAppOrigin(

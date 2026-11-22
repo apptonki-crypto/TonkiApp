@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+export const redeemPrizeSchema = z.object({
+  establishment_reward_id: z
+    .string()
+    .trim()
+    .min(1, "Premio no válido")
+    .max(36, "Premio no válido"),
+});
+
 export const establishmentRewardUpdateSchema = z.object({
   title: z
     .string()

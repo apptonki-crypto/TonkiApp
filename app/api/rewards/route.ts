@@ -3,6 +3,11 @@ import { apiError, apiSuccess } from "src/lib/api/response";
 import { logAndRespondAuthInfrastructureError } from "src/lib/api/authRouteCatch";
 import { verifySession } from "src/lib/auth/session";
 import { normalizeUserRole } from "src/lib/auth/userRole";
+import { readSpendableTonkis } from "src/lib/rewards/ledger";
+import {
+  listRedemptionsForAdmin,
+  listRedemptionsForCustomer,
+} from "src/lib/rewards/redeem";
 import type {
   EstablishmentRewardCatalogItem,
   RewardsPagePayload,
@@ -254,11 +259,17 @@ export async function GET(req: Request) {
       return apiError("Una cuenta de mesero no tiene recompensas.", 403);
     }
 
-    const pointsAgg = await prisma.reward.aggregate({
-      where: { user_id: user.user_id },
-      _sum: { points: true },
-    });
-    const total_points = pointsAgg._sum.points ?? 0;
+    const pointsAgg =
+      role === "user"
+        ? null
+        : await prisma.reward.aggregate({
+            where: { user_id: user.user_id },
+            _sum: { points: true },
+          });
+    const total_points =
+      role === "user"
+        ? await readSpendableTonkis(user.user_id)
+        : (pointsAgg?._sum.points ?? 0);
 
     const payload: RewardsPagePayload = {
       role,
@@ -267,6 +278,10 @@ export async function GET(req: Request) {
       leaderboard: role === "admin" ? await loadAdminLeaderboard(user.user_id) : [],
       consumptions: role === "user" ? await loadUserConsumptions(user.user_id) : [],
       catalog: await loadCatalog(role, user.user_id),
+      redemptions:
+        role === "admin"
+          ? await listRedemptionsForAdmin(user.user_id)
+          : await listRedemptionsForCustomer(user.user_id),
     };
 
     return apiSuccess(payload);

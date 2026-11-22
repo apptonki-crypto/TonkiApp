@@ -55,6 +55,7 @@ model User {
   products                 Product[]
   dynamic_participations   PostDynamicParticipation[]
   check_ins                EstablishmentCheckIn[]
+  prize_redemptions        PrizeRedemption[]
 }
 
 model AuthIdentity {
@@ -137,6 +138,7 @@ model Establishment {
   staff_members StaffMember[]
   staff_invites StaffInvite[]
   check_ins     EstablishmentCheckIn[]
+  prize_redemptions PrizeRedemption[]
 }
 
 /// Visita registrada al escanear el QR de presentación. Una por cliente, negocio y día (hora de CDMX).
@@ -183,10 +185,36 @@ model EstablishmentReward {
 
   establishment Establishment @relation(fields: [establishment_id], references: [establishment_id])
   admin         User          @relation(fields: [admin_id], references: [user_id])
+  prize_redemptions PrizeRedemption[]
 
   @@index([establishment_id])
   @@index([admin_id])
   @@map("Establishment_Reward")
+}
+
+/// Canje de un premio del catálogo. `pending` aparta Tonkis; `delivered` ya se entregó; `cancelled` los devuelve.
+model PrizeRedemption {
+  redemption_id           String    @id @default(uuid()) @db.Char(36)
+  user_id                 String    @db.Char(36)
+  establishment_id        String    @db.Char(36)
+  /// Se conserva el título aunque el premio se borre del catálogo.
+  establishment_reward_id String?   @db.Char(36)
+  title                   String    @db.VarChar(150)
+  points                  Int
+  code                    String    @unique @db.VarChar(8)
+  /// pending | delivered | cancelled
+  status                  String    @default("pending") @db.VarChar(20)
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+  delivered_at            DateTime?
+  cancelled_at            DateTime?
+
+  user          User                 @relation(fields: [user_id], references: [user_id])
+  establishment Establishment        @relation(fields: [establishment_id], references: [establishment_id])
+  catalog_item  EstablishmentReward? @relation(fields: [establishment_reward_id], references: [establishment_reward_id], onDelete: SetNull)
+
+  @@index([user_id, status])
+  @@index([establishment_id, status, created_at(sort: Desc)])
 }
 
 model Reward {

@@ -2,12 +2,13 @@ import prisma from "src/lib/db";
 import { logAndRespondAuthInfrastructureError } from "src/lib/api/authRouteCatch";
 import { apiError, apiSuccess } from "src/lib/api/response";
 import { getSessionUserId } from "src/lib/auth/session";
-import type { TonkisCredit } from "src/lib/account/types";
+import type { TonkisCredit, TonkisRedemptionMovement } from "src/lib/account/types";
 import { CHARGE_STATUS_CREDITED } from "src/lib/charges/constants";
+import { readSpendableTonkis } from "src/lib/rewards/ledger";
 
 /**
- * Same points total as GET /api/rewards, plus recent QR credits.
- * Admins do not get a user airdrop or this ledger.
+ * Saldo disponible (igual que GET /api/rewards para un cliente), créditos recientes
+ * y canjes que apartan o ya gastaron Tonkis. Un admin no tiene este libro.
  */
 export async function GET() {
   try {
@@ -25,11 +26,7 @@ export async function GET() {
       return apiError("Prohibido", 403);
     }
 
-    const pointsAgg = await prisma.reward.aggregate({
-      where: { user_id: userId },
-      _sum: { points: true },
-    });
-    const total_points = pointsAgg._sum.points ?? 0;
+    const total_points = await readSpendableTonkis(userId);
 
     const rows = await prisma.charge.findMany({
       where: {
@@ -58,7 +55,37 @@ export async function GET() {
       ];
     });
 
-    return apiSuccess({ total_points, recent });
+    const redemptionRows = await prisma.prizeRedemption.findMany({
+      where: {
+        user_id: userId,
+        status: { in: ["pending", "delivered"] },
+      },
+      orderBy: { created_at: "desc" },
+      take: 8,
+      select: {
+        redemption_id: true,
+        title: true,
+        points: true,
+        status: true,
+        created_at: true,
+        establishment: { select: { name: true } },
+      },
+    });
+    const redemptions: TonkisRedemptionMovement[] = redemptionRows.flatMap((row) => {
+      if (row.status !== "pending" && row.status !== "delivered") return [];
+      return [
+        {
+          id: row.redemption_id,
+          establishment_name: row.establishment.name,
+          title: row.title,
+          points: row.points,
+          status: row.status,
+          at: row.created_at.toISOString(),
+        },
+      ];
+    });
+
+    return apiSuccess({ total_points, recent, redemptions });
   } catch (err) {
     const infra = logAndRespondAuthInfrastructureError(
       "[api/account/tonkis GET]",

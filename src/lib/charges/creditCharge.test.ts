@@ -49,6 +49,9 @@ describe("creditChargeForUser", () => {
       create: vi.fn(),
       aggregate: vi.fn(),
     },
+    prizeRedemption: {
+      aggregate: vi.fn(),
+    },
   };
 
   beforeEach(() => {
@@ -61,6 +64,7 @@ describe("creditChargeForUser", () => {
       type: "user",
       status: "active",
     });
+    tx.prizeRedemption.aggregate.mockResolvedValue({ _sum: { points: 0 } });
   });
 
   it("rejects an admin before writing a reward", async () => {
@@ -177,6 +181,18 @@ describe("creditChargeForUser", () => {
       userId: "user-1",
       amount: expect.any(Prisma.Decimal),
     });
+  });
+
+  it("reports the spendable balance when a redemption already holds Tonkis", async () => {
+    tx.charge.findUnique.mockResolvedValue(pendingCharge());
+    tx.charge.updateMany.mockResolvedValue({ count: 1 });
+    tx.reward.create.mockResolvedValue({ reward_id: "reward-1" });
+    tx.reward.aggregate.mockResolvedValue({ _sum: { points: 50 } });
+    tx.prizeRedemption.aggregate.mockResolvedValue({ _sum: { points: 40 } });
+
+    const result = await creditChargeForUser(token, "user-1");
+
+    expect(result).toMatchObject({ ok: true, points: 10, total_points: 10 });
   });
 
   it("does not create a second reward when the token was just claimed", async () => {

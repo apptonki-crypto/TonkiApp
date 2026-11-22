@@ -117,7 +117,10 @@ Si el código ya venció pero el pago sí se confirmó, esa misma persona todav�
 1. Abrir Recompensas (`/rewards`).
 2. Se ve el saldo de Tonkis, la tabla de líderes, la de consumos y el catálogo.
 3. La empresa crea, edita o borra premios de su catálogo desde esa misma pantalla.
-4. El cliente ve el premio, el costo en Tonkis y cuántos le faltan. Todavía no hay canje.
+4. El cliente ve el premio, el costo en Tonkis y cuántos le faltan.
+5. Si le alcanzan, pulsa Canjear. Esos Tonkis quedan apartados y aparece un código.
+6. En el negocio, la misma pantalla lista los canjes pendientes. Al entregar el premio se marca como entregado. El saldo no se vuelve a mover.
+7. El cliente o el negocio pueden cancelar mientras sigue pendiente. Los Tonkis regresan. Un canje ya entregado no se cancela.
 
 ## Airdrop
 

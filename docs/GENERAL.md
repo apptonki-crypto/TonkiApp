@@ -23,7 +23,7 @@ Barra inferior: Feed, Recompensas, Lugares, Cuenta.
 | Ruta | Qué es |
 |---|---|
 | `/dashboard` | Feed de publicaciones. Se puede abrir el perfil de una persona. |
-| `/rewards` | Saldo, tablas de líderes y de consumos, y catálogo de premios. |
+| `/rewards` | Saldo disponible, tablas de líderes y de consumos, catálogo y canje de premios. |
 | `/negocios` | Panal. Los lugares ya visitados (cobro acreditado o QR de presentación escaneado) quedan en el centro, unidos si son vecinos. Una visita nueva entra con animación. |
 | `/account` | Foto, datos, wallet y los Tonkis recientes. |
 
@@ -86,11 +86,13 @@ En el código ya existe el modo de llevar cada dinámica a un contrato Soroban, 
 
 ## Recompensas y Tonkis
 
-Los Tonkis se acreditan al confirmar un cobro, con el porcentaje del negocio. El cliente los ve en Cuenta y en Recompensas. La empresa arma el catálogo de premios (título, descripción, costo en Tonkis, imagen). Las tablas ordenan por puntos y por consumos.
+Los Tonkis se acreditan al confirmar un cobro, con el porcentaje del negocio. El cliente los ve en Cuenta y en Recompensas. Ese número es lo que puede gastar: lo acreditado menos los canjes pendientes y los ya entregados. Las tablas siguen ordenando por lo acumulado, no por el saldo.
+
+La empresa arma el catálogo de premios (título, descripción, costo en Tonkis, imagen). El cliente canjea desde la misma pantalla y recibe un código. El negocio lo marca como entregado. Cancelar un canje pendiente devuelve los Tonkis.
 
 ## Datos que ya tiene la base
 
-Además del esquema inicial: perfil público del negocio y su galería, cashback, cobro de un solo uso, productos y ventas del CRM, dinámicas, liquidación del cobro en cadena, orden de ramp, marca de perfil de empresa completado, y columnas para el contrato de cada dinámica (`20261111160000_dynamic_chain`).
+Además del esquema inicial: perfil público del negocio y su galería, cashback, cobro de un solo uso, productos y ventas del CRM, dinámicas, liquidación del cobro en cadena, orden de ramp, marca de perfil de empresa completado, columnas para el contrato de cada dinámica (`20261111160000_dynamic_chain`) y canjes de premios (`20261122160000_prize_redemption`).
 
 ## Documentos de detalle
 

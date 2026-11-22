@@ -16,6 +16,12 @@ import type {
   RewardsPodiumEntry,
 } from "src/lib/rewards/types";
 
+import {
+  AdminRedemptions,
+  CustomerRedemptions,
+  RedeemConfirm,
+} from "./RedemptionPanels";
+
 type RewardsApiEnvelope =
   | (RewardsPagePayload & { success: true })
   | { success: false; error?: string };
@@ -44,6 +50,8 @@ export function RewardsExperience() {
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] =
     useState<EstablishmentRewardCatalogItem | null>(null);
+  const [redeeming, setRedeeming] =
+    useState<EstablishmentRewardCatalogItem | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/rewards", { credentials: "include" });
@@ -59,6 +67,7 @@ export function RewardsExperience() {
       leaderboard: data.leaderboard ?? [],
       consumptions: data.consumptions ?? [],
       catalog: data.catalog ?? [],
+      redemptions: data.redemptions ?? [],
     });
   }, []);
 
@@ -160,6 +169,12 @@ export function RewardsExperience() {
         />
       )}
 
+      {isAdmin ? (
+        <AdminRedemptions items={payload?.redemptions ?? []} onChanged={load} />
+      ) : (
+        <CustomerRedemptions items={payload?.redemptions ?? []} onChanged={load} />
+      )}
+
       <ExploreRewards
         catalog={payload?.catalog ?? []}
         isAdmin={isAdmin}
@@ -173,6 +188,7 @@ export function RewardsExperience() {
           setEditing(reward);
         }}
         onDelete={(reward) => setDeleting(reward)}
+        onRedeem={(reward) => setRedeeming(reward)}
       />
 
       {(creating || editing) && isAdmin ? (
@@ -191,6 +207,14 @@ export function RewardsExperience() {
           reward={deleting}
           onClose={() => setDeleting(null)}
           onDeleted={handleDeleted}
+        />
+      ) : null}
+
+      {redeeming && !isAdmin ? (
+        <RedeemConfirm
+          reward={redeeming}
+          onClose={() => setRedeeming(null)}
+          onDone={load}
         />
       ) : null}
     </main>
@@ -280,7 +304,7 @@ function BalanceCard({
             {formatPoints(totalPoints)}
           </p>
           <p className="mt-1 text-sm text-tonki-chrome-text-secondary">
-            Puntos acumulados por tus consumos
+            Disponibles para canjear
           </p>
         </div>
         <div className="relative">
@@ -493,6 +517,7 @@ function ExploreRewards({
   onAdd,
   onEdit,
   onDelete,
+  onRedeem,
 }: {
   catalog: EstablishmentRewardCatalogItem[];
   isAdmin: boolean;
@@ -500,6 +525,7 @@ function ExploreRewards({
   onAdd: () => void;
   onEdit: (reward: EstablishmentRewardCatalogItem) => void;
   onDelete: (reward: EstablishmentRewardCatalogItem) => void;
+  onRedeem: (reward: EstablishmentRewardCatalogItem) => void;
 }) {
   return (
     <section className="mt-8">
@@ -541,6 +567,7 @@ function ExploreRewards({
               delayMs={Math.min(index, 7) * 60}
               onEdit={() => onEdit(reward)}
               onDelete={() => onDelete(reward)}
+              onRedeem={() => onRedeem(reward)}
             />
           ))}
         </div>
@@ -556,6 +583,7 @@ function RewardCard({
   delayMs,
   onEdit,
   onDelete,
+  onRedeem,
 }: {
   reward: EstablishmentRewardCatalogItem;
   isAdmin: boolean;
@@ -563,6 +591,7 @@ function RewardCard({
   delayMs: number;
   onEdit: () => void;
   onDelete: () => void;
+  onRedeem: () => void;
 }) {
   const imageSrc =
     reward.image_url?.trim() || "/Logos-Tonki-SVG/Isotipo caf-crema.svg";
@@ -644,6 +673,15 @@ function RewardCard({
                   ? "Ya tienes los Tonkis"
                   : `Te faltan ${formatPoints(missing)} Tonkis`}
               </p>
+              {canClaim && reward.value_tonkis >= 1 ? (
+                <button
+                  type="button"
+                  onClick={onRedeem}
+                  className="mt-3 w-full rounded-full bg-tonki-chrome py-2 text-sm font-bold text-tonki-accent transition-colors hover:bg-tonki-chrome-hover"
+                >
+                  Canjear
+                </button>
+              ) : null}
             </div>
           )}
         </div>

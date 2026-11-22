@@ -35,7 +35,6 @@ Mientras el modo siga en `off`, las dinámicas actuales siguen funcionando solo 
 
 ## Producto que se ve y no termina
 
-- **Canje de premios.** El catálogo se muestra y el cliente ve si ya junta los Tonkis. No hay un canje que descuente puntos ni marque el premio como entregado.
 - **Aviso de wallet al cobrar.** Se puede imprimir un QR de un negocio que todavía no puede recibir el pago.
 - **Migración del QR de presentación.** `20261117190000_establishment_presentation_qr` no está aplicada en Hostinger. Hasta aplicarla con `npx prisma migrate deploy`, en producción fallan Lugares para un cliente con sesión (lee `EstablishmentCheckIn`), el QR del local y `/visita`.
 - **QR de presentación sin prueba de presencia.** Cualquiera con la foto del código registra una visita al día. Mitigación actual: rotar el código.

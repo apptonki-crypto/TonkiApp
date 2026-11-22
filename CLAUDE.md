@@ -103,7 +103,7 @@ Chain config reads env via functions taking an `env` argument (`readChainMode(en
 - Uploads are written to `public/uploads/` on local disk (gitignored). Paths are resolved through `resolveSafePostAttachmentPath`.
 - `next.config.ts` hardcodes `allowedDevOrigins: ["192.168.100.48"]` for LAN dev testing and sets security headers.
 - A business admin needs a valid Stellar `wallet_address` (`^G[A-Z2-7]{55}$`) to receive payments. Otherwise its charges can't be paid.
-- Reward redemption (spending Tonkis) is not implemented. The catalog is display-only.
+- Prize redemption reserves Tonkis on `PrizeRedemption` (`pending`), and the business marks `delivered`. Cancel while pending returns the points. `/rewards` and `/account` show the spendable balance; leaderboards and airdrops still sum lifetime `Reward.points`.
 - The feed shows only real posts and stops when the API cursor runs out. The demo/placeholder feed was removed on purpose.
 
 ## Docs (`docs/`, Spanish)

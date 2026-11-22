@@ -12,6 +12,7 @@ import {
   rewardTitleForEstablishment,
   tonkisFromAmountCents,
 } from "src/lib/charges/tonkis";
+import { spendableTonkis } from "src/lib/rewards/balance";
 import { applyConsumptionForCreditedCharge } from "src/lib/posts/dynamics";
 import { scheduleChainWork } from "src/lib/posts/chain/schedule";
 
@@ -161,6 +162,13 @@ export async function creditChargeForUser(
       where: { user_id: userId },
       _sum: { points: true },
     });
+    const heldAgg = await tx.prizeRedemption.aggregate({
+      where: {
+        user_id: userId,
+        status: { in: ["pending", "delivered"] },
+      },
+      _sum: { points: true },
+    });
 
     const consumption = await applyConsumptionForCreditedCharge(tx, {
       chargeId: charge.charge_id,
@@ -174,7 +182,10 @@ export async function creditChargeForUser(
       ok: true as const,
       points: decision.points,
       establishment_name: charge.establishment.name,
-      total_points: pointsAgg._sum.points ?? 0,
+      total_points: spendableTonkis(
+        pointsAgg._sum.points ?? 0,
+        heldAgg._sum.points ?? 0
+      ),
     };
   });
   if (queuedChainJobs && result.ok) scheduleChainWork();

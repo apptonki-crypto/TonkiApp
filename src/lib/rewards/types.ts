@@ -6,6 +6,21 @@ export type RewardsPodiumEntry = {
   avatar_url: string | null;
 };
 
+export type PrizeRedemptionStatus = "pending" | "delivered" | "cancelled";
+
+export type PrizeRedemptionItem = {
+  id: string;
+  title: string;
+  points: number;
+  code: string;
+  status: PrizeRedemptionStatus;
+  establishment_id: string;
+  establishment_name: string;
+  customer_name: string;
+  created_at: string;
+  delivered_at: string | null;
+};
+
 export type EstablishmentRewardCatalogItem = {
   id: string;
   title: string;
@@ -25,4 +40,5 @@ export type RewardsPagePayload = {
   leaderboard: RewardsPodiumEntry[];
   consumptions: RewardsPodiumEntry[];
   catalog: EstablishmentRewardCatalogItem[];
+  redemptions: PrizeRedemptionItem[];
 };
